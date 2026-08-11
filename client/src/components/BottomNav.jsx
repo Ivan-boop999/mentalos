@@ -1,9 +1,10 @@
-import { Home, BarChart3, Trophy, Settings } from 'lucide-react';
+import { Home, BarChart3, Gift, Trophy, Settings } from 'lucide-react';
 
 const items = [
   { key: 'home', label: 'Сегодня', Icon: Home },
   { key: 'stats', label: 'Статистика', Icon: BarChart3 },
-  { key: 'achievements', label: 'Награды', Icon: Trophy },
+  { key: 'rewards', label: 'Награды', Icon: Gift },
+  { key: 'achievements', label: 'Достижения', Icon: Trophy },
   { key: 'settings', label: 'Настройки', Icon: Settings },
 ];
 

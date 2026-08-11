@@ -1,9 +1,5 @@
 import { useEffect, useState } from 'react';
 
-/**
- * Красивое всплывающее уведомление при разблокировке достижения.
- * Показывается автоматически при появлении в props.achievement.
- */
 export default function AchievementToast({ achievement, onDone }) {
   const [visible, setVisible] = useState(false);
 
@@ -12,8 +8,8 @@ export default function AchievementToast({ achievement, onDone }) {
       setVisible(true);
       const t = setTimeout(() => {
         setVisible(false);
-        setTimeout(onDone, 300);
-      }, 3500);
+        setTimeout(onDone, 350);
+      }, 3800);
       return () => clearTimeout(t);
     }
   }, [achievement, onDone]);
@@ -28,6 +24,7 @@ export default function AchievementToast({ achievement, onDone }) {
         <div className="ach-title">Достижение разблокировано!</div>
         <div className="ach-name">{achievement.title}</div>
         <div className="ach-desc">{achievement.desc}</div>
+        {achievement.bonus ? <div className="ach-bonus">🪙 +{achievement.bonus} бонусов</div> : null}
       </div>
     </div>
   );

@@ -11,6 +11,8 @@ import habitsRouter from './routes/habits.js';
 import statsRouter from './routes/stats.js';
 import settingsRouter from './routes/settings.js';
 import achievementsRouter from './routes/achievements.js';
+import categoriesRouter from './routes/categories.js';
+import referralRouter from './routes/referral.js';
 import { initBot } from './bot/index.js';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
@@ -44,14 +46,16 @@ app.use(express.json());
 // Проверка здоровья (нужна Render)
 app.get('/health', (_req, res) => res.json({ ok: true, name: 'MentalOS' }));
 
+// Self-ping эндпоинт — чтобы Render не усыплял Free-сервис
+app.get('/keep-alive', (_req, res) => res.json({ ok: true, t: Date.now() }));
+
 // ===== API (всё под защитой authMiddleware) =====
 app.use('/api/habits', authMiddleware, habitsRouter);
 app.use('/api/stats', authMiddleware, statsRouter);
 app.use('/api/settings', authMiddleware, settingsRouter);
 app.use('/api/achievements', authMiddleware, achievementsRouter);
-
-// Экспорт-эндпоинт для шеринга в сторис (генерит PNG статистики)
-// Подключим ниже в файле
+app.use('/api/categories', authMiddleware, categoriesRouter);
+app.use('/api/referral', authMiddleware, referralRouter);
 
 // ===== Отдаём собранный фронтенд (статика) =====
 // Папка client/dist появляется после `npm run build` во фронтенде.
@@ -74,6 +78,20 @@ app.listen(PORT, async () => {
 
   // Бот стартует отдельно (polling) — не блокирует API
   initBot();
+
+  // ===== Keep-alive: пингуем себя каждые 5 минут, чтобы Free-сервис не уснул =====
+  // Это критично для напоминаний — если сервер уснёт, cron-задачи не сработают.
+  const ownUrl = process.env.RENDER_EXTERNAL_URL || process.env.WEBAPP_URL;
+  if (ownUrl) {
+    setInterval(async () => {
+      try {
+        await fetch(`${ownUrl}/keep-alive`);
+      } catch {
+        /* noop */
+      }
+    }, 5 * 60 * 1000);
+    console.log('🫀 Keep-alive активен (пинг каждые 5 мин).');
+  }
 
   console.log('');
 });

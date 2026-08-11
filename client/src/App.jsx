@@ -8,70 +8,64 @@ import HomePage from './pages/Home.jsx';
 import StatsPage from './pages/Stats.jsx';
 import SettingsPage from './pages/Settings.jsx';
 import AchievementsPage from './pages/Achievements.jsx';
+import ReferralPage from './pages/Referral.jsx';
 import AddHabitModal from './components/AddHabitModal.jsx';
 import AchievementToast from './components/AchievementToast.jsx';
+import Celebration from './components/Celebration.jsx';
 
 export default function App() {
   const { initData, inTelegram, tgTheme, hapticFeedback, tg } = useTelegram();
   const timezone = useTimezone(initData);
-  const [page, setPage] = useState('home'); // home | stats | achievements | settings
+  const [page, setPage] = useState('home');
   const [habits, setHabits] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [modalOpen, setModalOpen] = useState(false);
   const [editingHabit, setEditingHabit] = useState(null);
-  const [achievement, setAchievement] = useState(null); // для тоста
+  const [achievement, setAchievement] = useState(null);
+  const [celebrate, setCelebrate] = useState(0);
 
-  useEffect(() => {
-    setInitData(initData);
-  }, [initData]);
+  useEffect(() => { setInitData(initData); }, [initData]);
 
   const loadHabits = async () => {
     try {
       setError('');
       const data = await api.getHabits();
       setHabits(data);
-    } catch (e) {
-      setError(e.message);
-    } finally {
-      setLoading(false);
-    }
+    } catch (e) { setError(e.message); }
+    setLoading(false);
   };
 
-  useEffect(() => {
-    if (initData) loadHabits();
-  }, [initData]);
+  useEffect(() => { if (initData) loadHabits(); }, [initData]);
 
   const persistTheme = async (theme) => {
-    try {
-      await api.updateSettings({ theme });
-    } catch {
-      /* noop */
-    }
+    try { await api.updateSettings({ theme }); } catch {}
   };
 
   const handleToggle = async (habitId, date) => {
     hapticFeedback('light');
-    setHabits((prev) =>
-      prev.map((h) => {
-        if (h.id !== habitId) return h;
-        const has = h.logs.includes(date);
-        return {
-          ...h,
-          logs: has ? h.logs.filter((d) => d !== date) : [...h.logs, date],
-        };
-      }),
-    );
+    const wasAllDone = habits.length > 0 && habits.filter((h) => h.logs.includes(date)).length === habits.length;
+
+    setHabits((prev) => prev.map((h) => {
+      if (h.id !== habitId) return h;
+      const has = h.logs.includes(date);
+      return { ...h, logs: has ? h.logs.filter((d) => d !== date) : [...h.logs, date] };
+    }));
+
     try {
       const res = await api.toggleHabit(habitId, date);
-      // Если сервер вернул новое достижение — показываем тост
-      if (res.newAchievements && res.newAchievements.length > 0) {
+      if (res.newAchievements?.length > 0) {
         setAchievement(res.newAchievements[0]);
         hapticFeedback('heavy');
       }
-      // Пересчитываем streak
       if (typeof res.streak === 'number') {
-        setHabits((prev) => prev.map((h) => (h.id === habitId ? { ...h, streak: res.streak } : h)));
+        setHabits((prev) => prev.map((h) => (h.id === habitId ? { ...h, streak: res.streak, best_streak: res.best_streak || h.best_streak } : h)));
+      }
+      // Конфетти, если после отметки все привычки выполнены и до этого не были
+      const doneCount = habits.filter((h) => h.logs.includes(date) || h.id === habitId).length;
+      if (res.done && !wasAllDone && doneCount === habits.length && habits.length > 0) {
+        setCelebrate((c) => c + 1);
+        hapticFeedback('heavy');
       }
     } catch (e) {
       setError(e.message);
@@ -79,15 +73,8 @@ export default function App() {
     }
   };
 
-  const openCreate = () => {
-    setEditingHabit(null);
-    setModalOpen(true);
-  };
-
-  const openEdit = (habit) => {
-    setEditingHabit(habit);
-    setModalOpen(true);
-  };
+  const openCreate = () => { setEditingHabit(null); setModalOpen(true); };
+  const openEdit = (habit) => { setEditingHabit(habit); setModalOpen(true); };
 
   const handleSubmitHabit = async (data) => {
     try {
@@ -102,20 +89,16 @@ export default function App() {
       }
       setModalOpen(false);
       setEditingHabit(null);
-    } catch (e) {
-      setError(e.message);
-    }
+    } catch (e) { setError(e.message); }
   };
 
   const handleDelete = async (id) => {
-    if (!confirm('Удалить привычку? История сохранится в отчётах.')) return;
+    if (!confirm('Удалить привычку?')) return;
     try {
       await api.deleteHabit(id);
       setHabits((prev) => prev.filter((h) => h.id !== id));
       hapticFeedback('heavy');
-    } catch (e) {
-      setError(e.message);
-    }
+    } catch (e) { setError(e.message); }
   };
 
   const userName = inTelegram ? tg?.initDataUnsafe?.user?.first_name : '';
@@ -127,6 +110,7 @@ export default function App() {
           <h1 className="app-title">
             {page === 'home' && '🧠 MentalOS'}
             {page === 'stats' && '📊 Статистика'}
+            {page === 'rewards' && '🎁 Награды'}
             {page === 'achievements' && '🏆 Достижения'}
             {page === 'settings' && '⚙️ Настройки'}
           </h1>
@@ -143,27 +127,24 @@ export default function App() {
               onDelete={handleDelete}
               onEdit={openEdit}
               onAdd={openCreate}
+              userName={userName}
             />
           )}
           {page === 'stats' && <StatsPage habits={habits} userName={userName} tg={tg} />}
+          {page === 'rewards' && <ReferralPage tg={tg} />}
           {page === 'achievements' && <AchievementsPage />}
           {page === 'settings' && <SettingsPage timezone={timezone} />}
         </main>
 
         {page === 'home' && (
-          <button className="fab" onClick={openCreate} aria-label="Добавить привычку">
-            +
-          </button>
+          <button className="fab" onClick={openCreate} aria-label="Добавить">+</button>
         )}
 
         <BottomNav current={page} onChange={setPage} />
 
         {modalOpen && (
           <AddHabitModal
-            onClose={() => {
-              setModalOpen(false);
-              setEditingHabit(null);
-            }}
+            onClose={() => { setModalOpen(false); setEditingHabit(null); }}
             onSubmit={handleSubmitHabit}
             habit={editingHabit}
             timezone={timezone}
@@ -171,11 +152,10 @@ export default function App() {
         )}
 
         <AchievementToast achievement={achievement} onDone={() => setAchievement(null)} />
+        <Celebration trigger={celebrate} />
 
         {!inTelegram && (
-          <div className="dev-banner">
-            🛠 Режим разработки. Открой внутри Telegram для полноценной работы.
-          </div>
+          <div className="dev-banner">🛠 Режим разработки. Открой внутри Telegram.</div>
         )}
       </div>
     </ThemeProvider>
