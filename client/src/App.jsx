@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { useTelegram } from './hooks/useTelegram';
 import { useTimezone } from './hooks/useTimezone';
+import { useSound } from './hooks/useSound';
 import { ThemeProvider } from './context/ThemeContext';
 import { api, setInitData } from './api/client';
 import BottomNav from './components/BottomNav.jsx';
@@ -21,6 +22,7 @@ import Onboarding from './components/Onboarding.jsx';
 export default function App() {
   const { initData, inTelegram, tgTheme, hapticFeedback, tg } = useTelegram();
   const timezone = useTimezone(initData);
+  const { play: playSound, enabled: soundEnabled, setEnabled: setSoundEnabled } = useSound();
   const [page, setPage] = useState('home');
   const [habits, setHabits] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -61,6 +63,14 @@ export default function App() {
 
   const handleLog = async (habitId, payload) => {
     hapticFeedback('light');
+    // Звук отметки (или success при выполнении цели)
+    if (payload.status === 'done') {
+      const habit = habits.find((h) => h.id === habitId);
+      const isMeasurableDone = habit?.goal_type === 'measurable' && payload.value >= habit?.goal_target;
+      playSound(isMeasurableDone || habit?.goal_type === 'boolean' ? 'tick' : 'pop');
+    } else {
+      playSound('toggle'); // skip
+    }
     const prevHabits = habits;
     setHabits((prev) => prev.map((h) => {
       if (h.id !== habitId) return h;
@@ -72,6 +82,7 @@ export default function App() {
       if (res.newAchievements?.length > 0) {
         setAchievement(res.newAchievements[0]);
         hapticFeedback('heavy');
+        playSound('success'); // фанфары достижения
       }
       if (typeof res.streak === 'number') {
         setHabits((prev) => prev.map((h) => (h.id === habitId ? { ...h, streak: res.streak, best_streak: res.best_streak || h.best_streak } : h)));
@@ -84,23 +95,32 @@ export default function App() {
         if (doneCount === total && !wasAllDone && total > 0) {
           setCelebrate((c) => c + 1);
           hapticFeedback('heavy');
+          playSound('success'); // победный аккорд при 100% дня
         }
       }
     } catch (e) {
       setError(e.message);
+      playSound('error');
       loadHabits();
     }
   };
 
   const handleUnlog = async (habitId, date) => {
     hapticFeedback('light');
+    playSound('toggle');
     setHabits((prev) => prev.map((h) => (h.id === habitId ? { ...h, logs: (h.logs || []).filter((l) => l.date !== date) } : h)));
     try { await api.unlogHabit(habitId, date); }
-    catch (e) { setError(e.message); loadHabits(); }
+    catch (e) { setError(e.message); playSound('error'); loadHabits(); }
   };
 
-  const openCreate = () => { setEditingHabit(null); setModalOpen(true); };
-  const openEdit = (habit) => { setEditingHabit(habit); setModalOpen(true); };
+  // Звук при смене страницы
+  const navigate = (page) => {
+    if (page !== 'home' || habits.length > 0) playSound('whoosh');
+    setPage(page);
+  };
+
+  const openCreate = () => { setEditingHabit(null); setModalOpen(true); playSound('pop'); };
+  const openEdit = (habit) => { setEditingHabit(habit); setModalOpen(true); playSound('click'); };
 
   const handleSubmitHabit = async (data) => {
     try {
@@ -167,15 +187,15 @@ export default function App() {
           {page === 'challenges' && <ChallengesPage />}
           {page === 'mood' && <MoodPage />}
           {page === 'rewards' && <ReferralPage tg={tg} onChange={loadSettings} />}
-          {page === 'more' && <MorePage onNavigate={setPage} />}
-          {page === 'settings' && <SettingsPage timezone={timezone} settings={settings} onChange={loadSettings} />}
+          {page === 'more' && <MorePage onNavigate={navigate} />}
+          {page === 'settings' && <SettingsPage timezone={timezone} settings={settings} onChange={loadSettings} soundEnabled={soundEnabled} onToggleSound={() => setSoundEnabled(!soundEnabled)} />}
           {page === 'journal' && <JournalPage />}
           {page === 'achievements' && <AchievementsPage />}
         </main>
 
         {page === 'home' && <button className="fab" onClick={openCreate} aria-label="Добавить">+</button>}
 
-        <BottomNav current={page} onChange={setPage} />
+        <BottomNav current={page} onChange={navigate} />
 
         {modalOpen && (
           <AddHabitModal

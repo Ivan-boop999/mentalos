@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { useTheme } from '../context/ThemeContext';
 import { api } from '../api/client';
-import { Sun, Moon, Monitor, Clock, Download, Palette } from 'lucide-react';
+import { Sun, Moon, Monitor, Clock, Download, Palette, Volume2, VolumeX } from 'lucide-react';
 
 const SKINS = [
   { value: 'default', title: 'Стандарт', emoji: '✨' },
@@ -13,7 +13,7 @@ const SKINS = [
   { value: 'neon', title: 'Neon', emoji: '💜' },
 ];
 
-export default function SettingsPage({ timezone = 'UTC', settings = {}, onChange }) {
+export default function SettingsPage({ timezone = 'UTC', settings = {}, onChange, soundEnabled = true, onToggleSound }) {
   const { mode, setMode } = useTheme();
   const [serverTheme, setServerTheme] = useState(null);
 
@@ -95,6 +95,19 @@ export default function SettingsPage({ timezone = 'UTC', settings = {}, onChange
       <section className="settings-section">
         <h3 className="card-title">Часовой пояс</h3>
         <div className="tz-card"><Clock size={20} /><div><strong>{timezone}</strong><span className="muted small">Напоминания по этому времени</span></div></div>
+      </section>
+
+      {/* Звуки */}
+      <section className="settings-section">
+        <h3 className="card-title">Звуки интерфейса</h3>
+        <button className={`theme-option ${soundEnabled ? 'active' : ''}`} onClick={onToggleSound} style={{ width: '100%' }}>
+          <div className="theme-option-icon">{soundEnabled ? <Volume2 size={22} /> : <VolumeX size={22} />}</div>
+          <div className="theme-option-text">
+            <strong>{soundEnabled ? 'Звуки включены' : 'Звуки выключены'}</strong>
+            <span>Отметка привычки, достижения, переходы</span>
+          </div>
+          <div className={`radio ${soundEnabled ? 'on' : ''}`} />
+        </button>
       </section>
 
       {/* Экспорт данных */}
