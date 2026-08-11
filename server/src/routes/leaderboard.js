@@ -14,12 +14,10 @@ router.get('/', async (req, res) => {
   const userId = req.userId;
   try {
     // Реферальная цепочка: пригласивший (referred_by) + все приглашённые
-    const { rows: me } = pool.query
-      ? await pool.query(
-          `SELECT id, username, first_name, xp, level, total_checkins FROM users WHERE id = $1`,
-          [userId],
-        )
-      : { rows: [] };
+    const { rows: me } = await pool.query(
+      `SELECT id, username, first_name, xp, level, total_checkins FROM users WHERE id = $1`,
+      [userId],
+    );
 
     const { rows: referrer } = await pool.query(
       `SELECT u.id, u.username, u.first_name, u.xp, u.level, u.total_checkins

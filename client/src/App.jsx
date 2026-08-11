@@ -40,8 +40,6 @@ export default function App() {
 
   useEffect(() => { setInitData(initData); }, [initData]);
 
-  useEffect(() => { setInitData(initData); }, [initData]);
-
   const loadSettings = async () => {
     try {
       const s = await api.getSettings();

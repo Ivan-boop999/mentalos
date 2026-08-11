@@ -137,7 +137,7 @@ export default function SettingsPage({ timezone = 'UTC', settings = {}, onChange
       <section className="settings-section">
         <h3 className="card-title">О приложении</h3>
         <div className="about-card">
-          <div className="about-row"><span>MentalOS</span><span className="muted">v3.0</span></div>
+          <div className="about-row"><span>MentalOS</span><span className="muted">v3.1</span></div>
           <div className="about-row"><span>Telegram Mini App</span><span className="muted">React + Node.js</span></div>
         </div>
       </section>
