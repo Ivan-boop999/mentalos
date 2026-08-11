@@ -23,8 +23,10 @@ export const api = {
   createHabit: (data) => request('/api/habits', { method: 'POST', body: JSON.stringify(data) }),
   updateHabit: (id, data) => request(`/api/habits/${id}`, { method: 'PUT', body: JSON.stringify(data) }),
   deleteHabit: (id) => request(`/api/habits/${id}`, { method: 'DELETE' }),
-  toggleHabit: (id, date) => request(`/api/habits/${id}/toggle`, { method: 'POST', body: JSON.stringify({ date }) }),
-  getCalendar: (id, months = 3) => request(`/api/habits/${id}/calendar?months=${months}`),
+  logHabit: (id, data) => request(`/api/habits/${id}/log`, { method: 'POST', body: JSON.stringify(data) }),
+  unlogHabit: (id, date) => request(`/api/habits/${id}/unlog`, { method: 'POST', body: JSON.stringify({ date }) }),
+  getCalendar: (id, months = 3) => request(`/api/habits/calendar?id=${id}&months=${months}`),
+  getYearHeatmap: () => request('/api/habits/year-heatmap'),
 
   // Stats
   getStats: (days = 7) => request(`/api/stats?days=${days}`),
@@ -45,4 +47,24 @@ export const api = {
   getReferral: () => request('/api/referral'),
   getShop: () => request('/api/referral/shop'),
   buyItem: (code) => request('/api/referral/buy', { method: 'POST', body: JSON.stringify({ code }) }),
+  activateTheme: (theme) => request('/api/referral/activate-theme', { method: 'POST', body: JSON.stringify({ theme }) }),
+
+  // Mood
+  getMoods: (days = 30) => request(`/api/mood?days=${days}`),
+  setMood: (mood, note) => request('/api/mood', { method: 'POST', body: JSON.stringify({ mood, note }) }),
+  deleteMood: () => request('/api/mood', { method: 'DELETE' }),
+
+  // Journal
+  getJournal: () => request('/api/journal'),
+  createJournal: (data) => request('/api/journal', { method: 'POST', body: JSON.stringify(data) }),
+  updateJournal: (id, data) => request(`/api/journal/${id}`, { method: 'PUT', body: JSON.stringify(data) }),
+  deleteJournal: (id) => request(`/api/journal/${id}`, { method: 'DELETE' }),
+
+  // Challenges
+  getChallenges: () => request('/api/challenges'),
+  joinChallenge: (id) => request(`/api/challenges/${id}/join`, { method: 'POST' }),
+  abandonChallenge: (id) => request(`/api/challenges/${id}/abandon`, { method: 'POST' }),
+
+  // Export
+  exportData: () => '/api/export',
 };

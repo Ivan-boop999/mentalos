@@ -79,16 +79,16 @@ export default function StatsPage({ habits = [], userName = '', tg }) {
           <div className="stat-icon" style={{ background: 'rgba(16,185,129,.15)', color: '#10B981' }}>
             <CheckCircle2 size={20} />
           </div>
-          <div className="stat-value">{stats.doneToday}/{stats.totalHabits}</div>
-          <div className="stat-label">Сегодня</div>
+          <div className="stat-value">{stats.perfectDays}</div>
+          <div className="stat-label">Идеальных дней</div>
         </div>
 
         <div className="stat-card">
           <div className="stat-icon" style={{ background: 'rgba(99,102,241,.15)', color: '#6366F1' }}>
             <Trophy size={20} />
           </div>
-          <div className="stat-value">{stats.totalHabits}</div>
-          <div className="stat-label">Всего привычек</div>
+          <div className="stat-value">{stats.currentPerfectStreak || 0}</div>
+          <div className="stat-label">Дней подряд 100%</div>
         </div>
       </div>
 

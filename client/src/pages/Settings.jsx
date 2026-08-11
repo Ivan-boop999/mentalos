@@ -1,82 +1,118 @@
 import { useEffect, useState } from 'react';
 import { useTheme } from '../context/ThemeContext';
 import { api } from '../api/client';
-import { Sun, Moon, Monitor, Clock } from 'lucide-react';
+import { Sun, Moon, Monitor, Clock, Download, Palette } from 'lucide-react';
 
-export default function SettingsPage({ timezone = 'UTC' }) {
+const SKINS = [
+  { value: 'default', title: 'Стандарт', emoji: '✨' },
+  { value: 'aurora', title: 'Aurora', emoji: '🌌' },
+  { value: 'sunset', title: 'Закат', emoji: '🌅' },
+  { value: 'forest', title: 'Лес', emoji: '🌲' },
+  { value: 'ocean', title: 'Океан', emoji: '🌊' },
+  { value: 'mono', title: 'Mono', emoji: '⚫' },
+  { value: 'neon', title: 'Neon', emoji: '💜' },
+];
+
+export default function SettingsPage({ timezone = 'UTC', settings = {}, onChange }) {
   const { mode, setMode } = useTheme();
   const [serverTheme, setServerTheme] = useState(null);
 
-  useEffect(() => {
-    api.getSettings().then((s) => setServerTheme(s.theme)).catch(() => {});
-  }, []);
+  useEffect(() => { setServerTheme(settings.theme || null); }, [settings.theme]);
 
-  const change = (next) => {
-    setMode(next);
-    setServerTheme(next);
+  const change = (next) => { setMode(next); setServerTheme(next); };
+
+  const activateSkin = async (skin) => {
+    if (skin === 'default') { try { await api.activateTheme('default'); onChange?.(); } catch {} return; }
+    // пытаемся купить (если уже owned — бэкенд просто активирует)
+    try { await api.buyItem(`theme_${skin}`); onChange?.(); }
+    catch (e) { alert('Сначала купите тему в магазине: ' + e.message); }
   };
 
-  const options = [
+  const themeOpts = [
     { value: 'auto', label: 'Авто', desc: 'По системе', Icon: Monitor },
     { value: 'light', label: 'Светлая', desc: 'Дневная', Icon: Sun },
     { value: 'dark', label: 'Тёмная', desc: 'Ночная', Icon: Moon },
   ];
 
+  const ownedThemes = settings.ownedThemes || ['default'];
+  const activeTheme = settings.active_theme || 'default';
+  const xp = settings.xp || 0;
+  const level = settings.level || 1;
+  const xpForNext = Math.pow(level, 2) * 100;
+  const xpForThis = Math.pow(level - 1, 2) * 100;
+  const xpProgress = Math.round(((xp - xpForThis) / (xpForNext - xpForThis)) * 100);
+
   return (
     <div className="page settings">
+      {/* Профиль / XP */}
+      <section className="settings-section">
+        <div className="profile-card glass">
+          <div className="profile-row">
+            <div className="profile-avatar">Lv {level}</div>
+            <div className="profile-info">
+              <strong>Уровень {level}</strong>
+              <span>{xp} XP</span>
+            </div>
+          </div>
+          <div className="xp-bar"><div className="xp-fill" style={{ width: `${xpProgress}%` }} /></div>
+          <span className="muted small">До уровня {level + 1}: {xpForNext - xp} XP</span>
+        </div>
+      </section>
+
+      {/* Тема оформления */}
       <section className="settings-section">
         <h3 className="card-title">Тема оформления</h3>
         <div className="theme-options">
-          {options.map(({ value, label, desc, Icon }) => (
-            <button
-              key={value}
-              className={`theme-option ${mode === value ? 'active' : ''}`}
-              onClick={() => change(value)}
-            >
-              <div className="theme-option-icon">
-                <Icon size={22} />
-              </div>
-              <div className="theme-option-text">
-                <strong>{label}</strong>
-                <span>{desc}</span>
-              </div>
+          {themeOpts.map(({ value, label, desc, Icon }) => (
+            <button key={value} className={`theme-option ${mode === value ? 'active' : ''}`} onClick={() => change(value)}>
+              <div className="theme-option-icon"><Icon size={22} /></div>
+              <div className="theme-option-text"><strong>{label}</strong><span>{desc}</span></div>
               <div className={`radio ${mode === value ? 'on' : ''}`} />
             </button>
           ))}
         </div>
       </section>
 
+      {/* Цветовая схема */}
+      <section className="settings-section">
+        <h3 className="card-title"><Palette size={16} /> Цветовая схема</h3>
+        <div className="skin-grid">
+          {SKINS.map((s) => {
+            const owned = ownedThemes.includes(s.value);
+            const active = activeTheme === s.value;
+            return (
+              <button key={s.value} className={`skin-chip ${active ? 'active' : ''} ${!owned ? 'locked' : ''}`} onClick={() => activateSkin(s.value)}>
+                <span style={{ fontSize: 22 }}>{s.emoji}</span>
+                <span>{s.title}</span>
+                {!owned && <span className="muted small">🛒</span>}
+              </button>
+            );
+          })}
+        </div>
+      </section>
+
+      {/* Часовой пояс */}
+      <section className="settings-section">
+        <h3 className="card-title">Часовой пояс</h3>
+        <div className="tz-card"><Clock size={20} /><div><strong>{timezone}</strong><span className="muted small">Напоминания по этому времени</span></div></div>
+      </section>
+
+      {/* Экспорт данных */}
+      <section className="settings-section">
+        <h3 className="card-title">Данные</h3>
+        <a className="primary-btn ghost-btn" href={api.exportData()} download>
+          <Download size={16} /> Экспортировать в JSON
+        </a>
+        <p className="settings-hint">Полная резервная копия: привычки, история, заметки, настроение, дневник.</p>
+      </section>
+
       <section className="settings-section">
         <h3 className="card-title">О приложении</h3>
         <div className="about-card">
-          <div className="about-row">
-            <span>MentalOS</span>
-            <span className="muted">версия 1.1</span>
-          </div>
-          <div className="about-row">
-            <span>Telegram Mini App</span>
-            <span className="muted">React + Node.js</span>
-          </div>
+          <div className="about-row"><span>MentalOS</span><span className="muted">v3.0</span></div>
+          <div className="about-row"><span>Telegram Mini App</span><span className="muted">React + Node.js</span></div>
         </div>
       </section>
-
-      <section className="settings-section">
-        <h3 className="card-title">Часовой пояс</h3>
-        <div className="tz-card">
-          <Clock size={20} />
-          <div>
-            <strong>{timezone}</strong>
-            <span className="muted small">Напоминания приходят по этому времени</span>
-          </div>
-        </div>
-        <p className="settings-hint">
-          Часовой пояс определяется автоматически по устройству. Если он неверный — проверь настройки даты/времени телефона.
-        </p>
-      </section>
-
-      <p className="settings-hint">
-        💡 Тема сохраняется на сервере и синхронизируется между устройствами.
-      </p>
     </div>
   );
 }

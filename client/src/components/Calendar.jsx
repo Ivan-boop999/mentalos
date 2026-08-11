@@ -14,7 +14,13 @@ export default function HabitCalendar({ habitId, months = 3 }) {
     let cancelled = false;
     api
       .getCalendar(habitId, months)
-      .then((d) => !cancelled && setDates(d.dates || []))
+      .then((d) => {
+        if (cancelled) return;
+        // бэкенд возвращает { logs: [{date, status, value}] }
+        const logs = d.logs || [];
+        const doneDates = logs.filter((l) => l.status === 'done').map((l) => l.date);
+        setDates(doneDates);
+      })
       .catch(() => {})
       .finally(() => !cancelled && setLoading(false));
     return () => { cancelled = true; };

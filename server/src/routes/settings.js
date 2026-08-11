@@ -3,60 +3,52 @@ import pool from '../db/pool.js';
 
 const router = Router();
 
-/**
- * GET /api/settings — текущие настройки пользователя
- */
+/** GET /api/settings */
 router.get('/', async (req, res) => {
-  const userId = req.userId;
   try {
     const { rows } = await pool.query(
-      `SELECT theme, timezone FROM users WHERE id = $1`,
-      [userId],
+      `SELECT theme, timezone, onboarded, xp, level, active_theme, bonus_balance, owned_themes
+       FROM users WHERE id = $1`,
+      [req.userId],
     );
-    res.json({
-      theme: rows[0]?.theme || 'auto',
-      timezone: rows[0]?.timezone || 'UTC',
-    });
+    const r = rows[0] || { theme: 'auto', timezone: 'UTC', onboarded: false, xp: 0, level: 1, active_theme: 'default' };
+    // нормализуем owned_themes в массив
+    let owned = r.owned_themes;
+    if (typeof owned === 'string') {
+      try { owned = JSON.parse(owned); } catch { owned = []; }
+    }
+    if (!Array.isArray(owned)) owned = ['default'];
+    if (!owned.includes('default')) owned = ['default', ...owned];
+    res.json({ ...r, ownedThemes: owned });
   } catch (err) {
-    console.error('GET /settings:', err);
+    console.error('GET settings:', err);
     res.status(500).json({ error: 'Ошибка сервера' });
   }
 });
 
-/**
- * PUT /api/settings — обновить настройки
- * body: { theme?, timezone? }
- */
+/** PUT /api/settings */
 router.put('/', async (req, res) => {
-  const userId = req.userId;
-  const { theme, timezone } = req.body;
-
   const sets = {};
+  const { theme, timezone, onboarded } = req.body;
+
   if (theme !== undefined) {
-    if (!['auto', 'light', 'dark'].includes(theme)) {
-      return res.status(400).json({ error: 'Недопустимое значение темы' });
-    }
+    if (!['auto', 'light', 'dark'].includes(theme)) return res.status(400).json({ error: 'Недопустимая тема' });
     sets.theme = theme;
   }
   if (timezone !== undefined) {
-    // Простая проверка формата IANA (America/New_York, Europe/Moscow, ...)
-    if (typeof timezone !== 'string' || timezone.length > 50) {
-      return res.status(400).json({ error: 'Недопустимый часовой пояс' });
-    }
+    if (typeof timezone !== 'string' || timezone.length > 50) return res.status(400).json({ error: 'Недопустимый tz' });
     sets.timezone = timezone;
   }
+  if (onboarded !== undefined) sets.onboarded = !!onboarded;
 
-  if (Object.keys(sets).length === 0) {
-    return res.status(400).json({ error: 'Нечего обновлять' });
-  }
+  if (!Object.keys(sets).length) return res.status(400).json({ error: 'Нечего обновлять' });
 
   try {
     const fields = Object.keys(sets).map((k, i) => `${k} = $${i + 2}`).join(', ');
-    const values = [userId, ...Object.values(sets)];
-    await pool.query(`UPDATE users SET ${fields} WHERE id = $1`, values);
+    await pool.query(`UPDATE users SET ${fields} WHERE id = $1`, [req.userId, ...Object.values(sets)]);
     res.json({ ok: true, ...sets });
   } catch (err) {
-    console.error('PUT /settings:', err);
+    console.error('PUT settings:', err);
     res.status(500).json({ error: 'Ошибка сервера' });
   }
 });

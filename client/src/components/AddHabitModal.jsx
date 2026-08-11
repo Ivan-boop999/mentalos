@@ -15,37 +15,30 @@ const DAYS = [
   { n: 1, label: 'Пн' }, { n: 2, label: 'Вт' }, { n: 3, label: 'Ср' },
   { n: 4, label: 'Чт' }, { n: 5, label: 'Пт' }, { n: 6, label: 'Сб' }, { n: 0, label: 'Вс' },
 ];
+const UNITS = ['раз', 'мин', 'час', 'л', 'мл', 'км', 'кг', 'стр.', 'шт.'];
 
-/**
- * Универсальная модалка: создаёт или редактирует привычку.
- * Если передать habit — режим редактирования (поля предзаполнены).
- */
 export default function AddHabitModal({ onClose, onSubmit, habit = null, timezone = 'UTC' }) {
   const editing = !!habit;
-
   const [title, setTitle] = useState(habit?.title || '');
   const [emoji, setEmoji] = useState(habit?.emoji || '✨');
   const [color, setColor] = useState(habit?.color || '#7C3AED');
   const [freqType, setFreqType] = useState(habit?.frequency?.type === 'weekly' ? 'weekly' : 'daily');
-  const [days, setDays] = useState(
-    habit?.frequency?.days || [1, 2, 3, 4, 5],
-  );
-  const [reminder, setReminder] = useState(
-    habit?.reminder_time ? String(habit.reminder_time).slice(0, 5) : '',
-  );
+  const [days, setDays] = useState(habit?.frequency?.days || [1, 2, 3, 4, 5]);
+  const [reminder, setReminder] = useState(habit?.reminder_time ? String(habit.reminder_time).slice(0, 5) : '');
+  const [goalType, setGoalType] = useState(habit?.goal_type || 'boolean');
+  const [goalTarget, setGoalTarget] = useState(habit?.goal_target || 1);
+  const [goalUnit, setGoalUnit] = useState(habit?.goal_unit || 'раз');
 
-  const toggleDay = (n) =>
-    setDays((prev) => (prev.includes(n) ? prev.filter((d) => d !== n) : [...prev, n].sort()));
+  const toggleDay = (n) => setDays((p) => (p.includes(n) ? p.filter((d) => d !== n) : [...p, n].sort()));
 
   const submit = (e) => {
     e.preventDefault();
     if (!title.trim()) return;
     onSubmit({
-      title: title.trim(),
-      emoji,
-      color,
+      title: title.trim(), emoji, color,
       frequency: freqType === 'weekly' ? { type: 'weekly', days } : { type: 'daily' },
       reminderTime: reminder || null,
+      goalType, goalTarget: Number(goalTarget) || 1, goalUnit,
     });
   };
 
@@ -58,91 +51,50 @@ export default function AddHabitModal({ onClose, onSubmit, habit = null, timezon
         </header>
 
         <form onSubmit={submit} className="modal-form">
-          <input
-            className="input"
-            placeholder="Например: Зарядка"
-            value={title}
-            onChange={(e) => setTitle(e.target.value)}
-            autoFocus
-            maxLength={40}
-          />
+          <input className="input" placeholder="Например: Пить воду" value={title} onChange={(e) => setTitle(e.target.value)} autoFocus maxLength={40} />
+
+          <label className="field-label">Тип цели</label>
+          <div className="seg-control">
+            <button type="button" className={`seg-btn ${goalType === 'boolean' ? 'active' : ''}`} onClick={() => setGoalType('boolean')}>Да / Нет</button>
+            <button type="button" className={`seg-btn ${goalType === 'measurable' ? 'active' : ''}`} onClick={() => setGoalType('measurable')}>Количество</button>
+          </div>
+
+          {goalType === 'measurable' && (
+            <div className="goal-row">
+              <input type="number" className="input" placeholder="Цель" value={goalTarget} onChange={(e) => setGoalTarget(e.target.value)} min={1} />
+              <select className="input" value={goalUnit} onChange={(e) => setGoalUnit(e.target.value)}>
+                {UNITS.map((u) => <option key={u} value={u}>{u}</option>)}
+              </select>
+            </div>
+          )}
 
           <label className="field-label">Иконка</label>
           <div className="emoji-grid">
-            {EMOJIS.map((e) => (
-              <button
-                type="button"
-                key={e}
-                className={`emoji-chip ${emoji === e ? 'active' : ''}`}
-                onClick={() => setEmoji(e)}
-              >
-                {e}
-              </button>
-            ))}
+            {EMOJIS.map((e) => <button type="button" key={e} className={`emoji-chip ${emoji === e ? 'active' : ''}`} onClick={() => setEmoji(e)}>{e}</button>)}
           </div>
 
           <label className="field-label">Цвет</label>
           <div className="color-grid">
-            {COLORS.map((c) => (
-              <button
-                type="button"
-                key={c}
-                className={`color-chip ${color === c ? 'active' : ''}`}
-                style={{ background: c, color: c }}
-                onClick={() => setColor(c)}
-              />
-            ))}
+            {COLORS.map((c) => <button type="button" key={c} className={`color-chip ${color === c ? 'active' : ''}`} style={{ background: c, color: c }} onClick={() => setColor(c)} />)}
           </div>
 
           <label className="field-label">Частота</label>
           <div className="seg-control">
-            <button
-              type="button"
-              className={`seg-btn ${freqType === 'daily' ? 'active' : ''}`}
-              onClick={() => setFreqType('daily')}
-            >
-              Каждый день
-            </button>
-            <button
-              type="button"
-              className={`seg-btn ${freqType === 'weekly' ? 'active' : ''}`}
-              onClick={() => setFreqType('weekly')}
-            >
-              По дням
-            </button>
+            <button type="button" className={`seg-btn ${freqType === 'daily' ? 'active' : ''}`} onClick={() => setFreqType('daily')}>Каждый день</button>
+            <button type="button" className={`seg-btn ${freqType === 'weekly' ? 'active' : ''}`} onClick={() => setFreqType('weekly')}>По дням</button>
           </div>
 
           {freqType === 'weekly' && (
             <div className="days-grid">
-              {DAYS.map(({ n, label }) => (
-                <button
-                  type="button"
-                  key={n}
-                  className={`day-chip ${days.includes(n) ? 'active' : ''}`}
-                  onClick={() => toggleDay(n)}
-                >
-                  {label}
-                </button>
-              ))}
+              {DAYS.map(({ n, label }) => <button type="button" key={n} className={`day-chip ${days.includes(n) ? 'active' : ''}`} onClick={() => toggleDay(n)}>{label}</button>)}
             </div>
           )}
 
-          <label className="field-label">
-            Напоминание <span className="muted small">(по твоему времени: {timezone})</span>
-          </label>
-          <input
-            type="time"
-            className="input"
-            value={reminder}
-            onChange={(e) => setReminder(e.target.value)}
-          />
-          <p className="hint">
-            Оставь пустым, если без напоминания. Время по твоему часовому поясу.
-          </p>
+          <label className="field-label">Напоминание <span className="muted small">({timezone})</span></label>
+          <input type="time" className="input" value={reminder} onChange={(e) => setReminder(e.target.value)} />
+          <p className="hint">Оставь пустым — без напоминания.</p>
 
-          <button type="submit" className="primary-btn" disabled={!title.trim()}>
-            {editing ? 'Сохранить' : 'Создать привычку'}
-          </button>
+          <button type="submit" className="primary-btn" disabled={!title.trim()}>{editing ? 'Сохранить' : 'Создать привычку'}</button>
         </form>
       </div>
     </div>

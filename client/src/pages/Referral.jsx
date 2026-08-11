@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import { api } from '../api/client';
 import { Gift, Copy, Check, Users, ShoppingBag, Sparkles } from 'lucide-react';
 
-export default function ReferralPage({ tg }) {
+export default function ReferralPage({ tg, onChange }) {
   const [tab, setTab] = useState('refer'); // refer | shop
   const [data, setData] = useState(null);
   const [shop, setShop] = useState([]);
@@ -36,8 +36,9 @@ export default function ReferralPage({ tg }) {
     if (!confirm('Купить этот товар?')) return;
     try {
       const res = await api.buyItem(code);
-      alert(`✅ Куплено: ${res.item.title}\nОстаток бонусов: ${res.balance}`);
+      alert(`✅ ${res.alreadyOwned ? 'Активировано' : 'Куплено'}: ${res.item.title}\nОстаток бонусов: ${res.balance}`);
       load();
+      onChange?.();
     } catch (e) {
       alert('❌ ' + e.message);
     }

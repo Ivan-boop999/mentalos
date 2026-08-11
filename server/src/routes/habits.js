@@ -3,13 +3,14 @@ import pool from '../db/pool.js';
 
 const router = Router();
 
-/** GET /api/habits — все привычки + логи за 30 дней + streak + best_streak */
+/** GET /api/habits — все привычки + логи + streak + best_streak */
 router.get('/', async (req, res) => {
   const userId = req.userId;
   try {
     const { rows: habits } = await pool.query(
       `SELECT h.id, h.title, h.emoji, h.color, h.frequency, h.reminder_time, h.best_streak,
-              h.category_id, c.name AS category_name, c.emoji AS category_emoji
+              h.goal_type, h.goal_target, h.goal_unit, h.category_id,
+              c.name AS category_name, c.emoji AS category_emoji
        FROM habits h
        LEFT JOIN categories c ON c.id = h.category_id
        WHERE h.user_id = $1 AND h.archived = FALSE
@@ -18,27 +19,38 @@ router.get('/', async (req, res) => {
     );
 
     const { rows: logs } = await pool.query(
-      `SELECT habit_id, log_date::text AS date
+      `SELECT habit_id, log_date::text AS date, status, value
        FROM habit_logs
-       WHERE user_id = $1 AND log_date >= CURRENT_DATE - INTERVAL '30 days'
+       WHERE user_id = $1 AND log_date >= CURRENT_DATE - INTERVAL '35 days'
        ORDER BY log_date ASC`,
       [userId],
     );
 
+    const { rows: notes } = await pool.query(
+      `SELECT habit_id, log_date::text AS date, note FROM habit_notes WHERE user_id = $1`,
+      [userId],
+    );
+
     const logsByHabit = {};
-    for (const l of logs) (logsByHabit[l.habit_id] ||= []).push(l.date);
+    for (const l of logs) (logsByHabit[l.habit_id] ||= []).push(l);
+    const notesByHabit = {};
+    for (const n of notes) (notesByHabit[n.habit_id] ||= {})[n.date] = n.note;
 
     const result = habits.map((h) => {
       const freq = typeof h.frequency === 'string' ? JSON.parse(h.frequency) : h.frequency;
-      const logs = logsByHabit[h.id] || [];
-      const streak = calcStreak(logs, freq);
+      const hLogs = logsByHabit[h.id] || [];
+      const streak = calcStreak(hLogs, freq);
       return {
         ...h,
         frequency: freq,
         category: h.category_id ? { id: h.category_id, name: h.category_name, emoji: h.category_emoji } : null,
-        logs,
+        logs: hLogs,
+        notes: notesByHabit[h.id] || {},
         streak,
         best_streak: Math.max(h.best_streak || 0, streak),
+        // сколько «value» набрано сегодня (для measurable)
+        todayValue: hLogs.find((l) => l.date === new Date().toISOString().slice(0, 10))?.value || 0,
+        todayStatus: hLogs.find((l) => l.date === new Date().toISOString().slice(0, 10))?.status || null,
       };
     });
 
@@ -49,23 +61,28 @@ router.get('/', async (req, res) => {
   }
 });
 
-/** POST /api/habits — создать */
+/** POST /api/habits — создать (с поддержкой goal_type) */
 router.post('/', async (req, res) => {
   const userId = req.userId;
-  const { title, emoji = '✨', color = '#7C3AED', frequency = { type: 'daily' }, reminderTime = null, categoryId = null } = req.body;
+  const {
+    title, emoji = '✨', color = '#7C3AED',
+    frequency = { type: 'daily' }, reminderTime = null, categoryId = null,
+    goalType = 'boolean', goalTarget = 1, goalUnit = 'раз',
+  } = req.body;
   if (!title?.trim()) return res.status(400).json({ error: 'Название обязательно' });
 
   try {
     const { rows } = await pool.query(
-      `INSERT INTO habits (user_id, title, emoji, color, frequency, reminder_time, category_id)
-       VALUES ($1, $2, $3, $4, $5, $6, $7)
-       RETURNING id, title, emoji, color, frequency, reminder_time, best_streak, category_id`,
-      [userId, title.trim(), emoji, color, frequency, reminderTime, categoryId],
+      `INSERT INTO habits (user_id, title, emoji, color, frequency, reminder_time, category_id,
+                           goal_type, goal_target, goal_unit)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
+       RETURNING id, title, emoji, color, frequency, reminder_time, best_streak,
+                 goal_type, goal_target, goal_unit, category_id`,
+      [userId, title.trim(), emoji, color, frequency, reminderTime, categoryId, goalType, goalTarget, goalUnit],
     );
     const habit = rows[0];
     habit.frequency = typeof habit.frequency === 'string' ? JSON.parse(habit.frequency) : habit.frequency;
-    habit.logs = [];
-    habit.streak = 0;
+    habit.logs = []; habit.notes = {}; habit.streak = 0; habit.todayValue = 0;
     res.status(201).json(habit);
   } catch (err) {
     console.error('POST /habits:', err);
@@ -77,20 +94,22 @@ router.post('/', async (req, res) => {
 router.put('/:id', async (req, res) => {
   const userId = req.userId;
   const habitId = Number(req.params.id);
-  const { title, emoji, color, frequency, reminderTime, categoryId } = req.body;
+  const { title, emoji, color, frequency, reminderTime, categoryId, goalType, goalTarget, goalUnit } = req.body;
 
   try {
     const { rows } = await pool.query(
       `UPDATE habits SET
-         title = COALESCE($3, title),
-         emoji = COALESCE($4, emoji),
-         color = COALESCE($5, color),
-         frequency = COALESCE($6, frequency),
-         reminder_time = COALESCE($7, reminder_time),
-         category_id = COALESCE($8, category_id)
+         title = COALESCE($3, title), emoji = COALESCE($4, emoji), color = COALESCE($5, color),
+         frequency = COALESCE($6, frequency), reminder_time = COALESCE($7, reminder_time),
+         category_id = COALESCE($8, category_id),
+         goal_type = COALESCE($9, goal_type), goal_target = COALESCE($10, goal_target),
+         goal_unit = COALESCE($11, goal_unit)
        WHERE id = $1 AND user_id = $2 AND archived = FALSE
-       RETURNING id, title, emoji, color, frequency, reminder_time, best_streak, category_id`,
-      [habitId, userId, title, emoji, color, frequency ? JSON.stringify(frequency) : null, reminderTime ?? null, categoryId ?? null],
+       RETURNING id, title, emoji, color, frequency, reminder_time, best_streak,
+                 goal_type, goal_target, goal_unit, category_id`,
+      [habitId, userId, title, emoji, color,
+        frequency ? JSON.stringify(frequency) : null, reminderTime ?? null, categoryId ?? null,
+        goalType ?? null, goalTarget ?? null, goalUnit ?? null],
     );
     if (!rows.length) return res.status(404).json({ error: 'Привычка не найдена' });
     const h = rows[0];
@@ -104,11 +123,10 @@ router.put('/:id', async (req, res) => {
 
 /** DELETE /api/habits/:id — в архив */
 router.delete('/:id', async (req, res) => {
-  const userId = req.userId;
   try {
     const { rowCount } = await pool.query(
       `UPDATE habits SET archived = TRUE WHERE id = $1 AND user_id = $2`,
-      [Number(req.params.id), userId],
+      [Number(req.params.id), req.userId],
     );
     if (!rowCount) return res.status(404).json({ error: 'Не найдена' });
     res.json({ ok: true });
@@ -118,61 +136,146 @@ router.delete('/:id', async (req, res) => {
   }
 });
 
-/** POST /api/habits/:id/toggle — отметить/снять + достижения + бонусы + best_streak */
-router.post('/:id/toggle', async (req, res) => {
+/**
+ * POST /api/habits/:id/log
+ * body: { date?, status: 'done'|'skip', value?, note? }
+ * Универсальная отметка с поддержкой skip и measurable.
+ */
+router.post('/:id/log', async (req, res) => {
   const userId = req.userId;
   const habitId = Number(req.params.id);
   const date = req.body?.date || new Date().toISOString().slice(0, 10);
+  const status = req.body?.status || 'done';
+  const value = Number(req.body?.value) || null;
+  const note = req.body?.note;
 
   try {
-    const { rows: existing } = await pool.query(
-      `SELECT id FROM habit_logs WHERE habit_id = $1 AND user_id = $2 AND log_date = $3`,
-      [habitId, userId, date],
+    // upsert отметки
+    await pool.query(
+      `INSERT INTO habit_logs (habit_id, user_id, log_date, status, value)
+       VALUES ($1, $2, $3, $4, $5)
+       ON CONFLICT (habit_id, log_date) DO UPDATE SET status = EXCLUDED.status, value = EXCLUDED.value`,
+      [habitId, userId, date, status, value],
     );
 
-    if (existing.length) {
-      await pool.query(`DELETE FROM habit_logs WHERE habit_id = $1 AND user_id = $2 AND log_date = $3`, [habitId, userId, date]);
-      return res.json({ done: false, date, newAchievements: [] });
+    // upsert заметки
+    if (note !== undefined) {
+      if (note === null || note === '') {
+        await pool.query(`DELETE FROM habit_notes WHERE habit_id = $1 AND log_date = $2`, [habitId, date]);
+      } else {
+        await pool.query(
+          `INSERT INTO habit_notes (habit_id, user_id, log_date, note)
+           VALUES ($1, $2, $3, $4)
+           ON CONFLICT (habit_id, log_date) DO UPDATE SET note = EXCLUDED.note`,
+          [habitId, userId, date, note],
+        );
+      }
     }
 
-    await pool.query(`INSERT INTO habit_logs (habit_id, user_id, log_date) VALUES ($1, $2, $3)`, [habitId, userId, date]);
-
-    const { rows: hRows } = await pool.query(`SELECT frequency, best_streak FROM habits WHERE id = $1`, [habitId]);
+    // Считаем актуальный streak
+    const { rows: hRows } = await pool.query(`SELECT frequency, best_streak, goal_type, goal_target FROM habits WHERE id = $1`, [habitId]);
     const freq = hRows[0] ? (typeof hRows[0].frequency === 'string' ? JSON.parse(hRows[0].frequency) : hRows[0].frequency) : null;
+    const { rows: logRows } = await pool.query(
+      `SELECT log_date::text AS date, status, value FROM habit_logs WHERE habit_id = $1 ORDER BY log_date`,
+      [habitId],
+    );
 
-    const { rows: logRows } = await pool.query(`SELECT log_date::text AS date FROM habit_logs WHERE habit_id = $1 ORDER BY log_date`, [habitId]);
-    const streak = calcStreak(logRows.map((r) => r.date), freq);
-
-    // Обновляем best_streak, если превзойдён
+    const streak = calcStreak(logRows, freq);
     if (streak > (hRows[0]?.best_streak || 0)) {
       await pool.query(`UPDATE habits SET best_streak = $1 WHERE id = $2`, [streak, habitId]);
     }
 
-    // Начисляем бонусы за отметку (1 бонус за каждое выполнение)
-    await pool.query(`UPDATE users SET bonus_balance = bonus_balance + 1 WHERE id = $1`, [userId]);
-    await pool.query(`INSERT INTO bonus_transactions (user_id, amount, reason) VALUES ($1, 1, 'habit_checkin')`, [userId]);
+    // XP и бонусы только за done (не skip)
+    let bonusEarned = 0;
+    let xpEarned = 0;
+    if (status === 'done') {
+      bonusEarned = 1;
+      xpEarned = 10;
+      await pool.query(`UPDATE users SET bonus_balance = bonus_balance + 1, xp = xp + 10 WHERE id = $1`, [userId]);
+      await pool.query(`INSERT INTO bonus_transactions (user_id, amount, reason) VALUES ($1, 1, 'habit_checkin')`, [userId]);
+      // Обновляем уровень (1 уровень = 100 XP)
+      await updateLevel(userId);
+    }
 
-    const newAchievements = await checkAchievements(userId, habitId, streak);
+    const newAchievements = status === 'done' ? await checkAchievements(userId, habitId, streak) : [];
 
-    res.json({ done: true, date, streak, best_streak: Math.max(streak, hRows[0]?.best_streak || 0), newAchievements, bonusEarned: 1 });
+    res.json({
+      ok: true, date, status, value, streak,
+      best_streak: Math.max(streak, hRows[0]?.best_streak || 0),
+      newAchievements, bonusEarned, xpEarned,
+    });
   } catch (err) {
-    console.error('toggle:', err);
+    console.error('log:', err);
     res.status(500).json({ error: 'Ошибка сервера' });
   }
 });
 
-// ===== Достижения =====
+/** POST /api/habits/:id/unlog — удалить отметку (снять) */
+router.post('/:id/unlog', async (req, res) => {
+  const userId = req.userId;
+  const habitId = Number(req.params.id);
+  const date = req.body?.date || new Date().toISOString().slice(0, 10);
+  try {
+    await pool.query(`DELETE FROM habit_logs WHERE habit_id = $1 AND user_id = $2 AND log_date = $3`, [habitId, userId, date]);
+    res.json({ ok: true, date });
+  } catch (err) {
+    console.error('unlog:', err);
+    res.status(500).json({ error: 'Ошибка сервера' });
+  }
+});
+
+/** GET /api/habits/calendar?id=...&months=3 — сетка для календаря */
+router.get('/calendar', async (req, res) => {
+  const userId = req.userId;
+  const habitId = Number(req.query.id);
+  const months = Math.min(Math.max(Number(req.query.months) || 3, 1), 12);
+  if (!habitId) return res.status(400).json({ error: 'id обязателен' });
+  try {
+    const { rows } = await pool.query(
+      `SELECT log_date::text AS date, status, value FROM habit_logs
+       WHERE habit_id = $1 AND user_id = $2 AND log_date >= CURRENT_DATE - ($3 || ' months')::interval
+       ORDER BY log_date`,
+      [habitId, userId, months],
+    );
+    res.json({ logs: rows });
+  } catch (err) {
+    console.error('calendar:', err);
+    res.status(500).json({ error: 'Ошибка сервера' });
+  }
+});
+
+/** GET /api/habits/year-heatmap — годовая сетка по всем привычкам (как GitHub) */
+router.get('/year-heatmap', async (req, res) => {
+  const userId = req.userId;
+  try {
+    const { rows } = await pool.query(
+      `SELECT log_date::text AS date, COUNT(*) AS cnt, MAX(status) AS any_status
+       FROM habit_logs
+       WHERE user_id = $1 AND status = 'done' AND log_date >= CURRENT_DATE - INTERVAL '365 days'
+       GROUP BY log_date ORDER BY log_date`,
+      [userId],
+    );
+    res.json({ days: rows });
+  } catch (err) {
+    console.error('year-heatmap:', err);
+    res.status(500).json({ error: 'Ошибка сервера' });
+  }
+});
+
+// ===== Достижения (расширенный набор) =====
 const TIERS = [
-  { code: 'streak_7', threshold: 7, title: 'Неделя', emoji: '🔥', desc: '7 дней подряд', bonus: 50 },
-  { code: 'streak_30', threshold: 30, title: 'Месяц', emoji: '💎', desc: '30 дней подряд', bonus: 200 },
-  { code: 'streak_100', threshold: 100, title: 'Век', emoji: '🏆', desc: '100 дней подряд', bonus: 1000 },
+  { code: 'first_checkin', threshold: 1, title: 'Первый шаг', emoji: '🌱', desc: 'Первая отметка', bonus: 10, xp: 20 },
+  { code: 'streak_3', threshold: 3, title: 'Новичок', emoji: '⭐', desc: '3 дня подряд', bonus: 20, xp: 30 },
+  { code: 'streak_7', threshold: 7, title: 'Неделя', emoji: '🔥', desc: '7 дней подряд', bonus: 50, xp: 100 },
+  { code: 'streak_30', threshold: 30, title: 'Месяц', emoji: '💎', desc: '30 дней подряд', bonus: 200, xp: 500 },
+  { code: 'streak_100', threshold: 100, title: 'Век', emoji: '🏆', desc: '100 дней подряд', bonus: 1000, xp: 2000 },
+  { code: 'streak_365', threshold: 365, title: 'Год', emoji: '👑', desc: '365 дней подряд', bonus: 10000, xp: 20000 },
 ];
 
 async function checkAchievements(userId, habitId, streak) {
   const unlocked = [];
   for (const t of TIERS) {
     if (streak >= t.threshold) {
-      const before = Date.now();
       await pool.query(
         `INSERT INTO achievements (user_id, habit_id, code) VALUES ($1, $2, $3) ON CONFLICT DO NOTHING`,
         [userId, habitId, t.code],
@@ -182,9 +285,9 @@ async function checkAchievements(userId, habitId, streak) {
         [userId, habitId, t.code],
       );
       if (rows[0] && Date.now() - new Date(rows[0].unlocked_at).getTime() < 5000) {
-        // Новое достижение → бонус
-        await pool.query(`UPDATE users SET bonus_balance = bonus_balance + $1 WHERE id = $2`, [t.bonus, userId]);
+        await pool.query(`UPDATE users SET bonus_balance = bonus_balance + $1, xp = xp + $2 WHERE id = $3`, [t.bonus, t.xp, userId]);
         await pool.query(`INSERT INTO bonus_transactions (user_id, amount, reason) VALUES ($1, $2, $3)`, [t.bonus, `achievement:${t.code}`, userId]);
+        await updateLevel(userId);
         unlocked.push({ ...t, habitId });
       }
     }
@@ -192,42 +295,38 @@ async function checkAchievements(userId, habitId, streak) {
   return unlocked;
 }
 
-/** GET /api/habits/:id/calendar?months=3 — сетка месяца как у GitHub */
-router.get('/:id/calendar', async (req, res) => {
-  const userId = req.userId;
-  const habitId = Number(req.params.id);
-  const months = Math.min(Math.max(Number(req.query.months) || 3, 1), 12);
-
-  try {
-    const { rows } = await pool.query(
-      `SELECT log_date::text AS date FROM habit_logs
-       WHERE habit_id = $1 AND user_id = $2 AND log_date >= CURRENT_DATE - ($3 || ' months')::interval
-       ORDER BY log_date`,
-      [habitId, userId, months],
-    );
-    res.json({ dates: rows.map((r) => r.date) });
-  } catch (err) {
-    console.error('calendar:', err);
-    res.status(500).json({ error: 'Ошибка сервера' });
+async function updateLevel(userId) {
+  const { rows } = await pool.query(`SELECT xp, level FROM users WHERE id = $1`, [userId]);
+  if (!rows[0]) return;
+  const xp = rows[0].xp;
+  // Формула: level = floor(sqrt(xp / 100)) + 1
+  const newLevel = Math.floor(Math.sqrt(xp / 100)) + 1;
+  if (newLevel > rows[0].level) {
+    await pool.query(`UPDATE users SET level = $1 WHERE id = $2`, [newLevel, userId]);
   }
-});
+}
 
-function calcStreak(logDates, frequency) {
-  if (!logDates.length) return 0;
-  const set = new Set(logDates);
+function calcStreak(logs, frequency) {
+  // logs: [{date, status, value}]
+  if (!logs.length) return 0;
+  const doneSet = new Set(logs.filter((l) => l.status === 'done').map((l) => l.date));
+  const skipSet = new Set(logs.filter((l) => l.status === 'skip').map((l) => l.date));
   const days = frequency?.type === 'weekly' ? frequency.days : null;
+
   let streak = 0;
   const cursor = new Date();
   cursor.setHours(0, 0, 0, 0);
   for (let i = 0; i < 365; i++) {
     const iso = cursor.toISOString().slice(0, 10);
     const expected = !days || days.includes(cursor.getDay());
-    if (set.has(iso)) streak++;
-    else if (expected && i > 0) break;
+    if (!expected) { cursor.setDate(cursor.getDate() - 1); continue; }
+    if (doneSet.has(iso)) streak++;
+    else if (skipSet.has(iso)) { /* skip не прерывает и не увеличивает */ }
+    else if (i > 0) break;
     cursor.setDate(cursor.getDate() - 1);
   }
   return streak;
 }
 
 export default router;
-export { TIERS };
+export { TIERS, updateLevel };

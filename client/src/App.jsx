@@ -9,9 +9,14 @@ import StatsPage from './pages/Stats.jsx';
 import SettingsPage from './pages/Settings.jsx';
 import AchievementsPage from './pages/Achievements.jsx';
 import ReferralPage from './pages/Referral.jsx';
+import MoodPage from './pages/Mood.jsx';
+import JournalPage from './pages/Journal.jsx';
+import ChallengesPage from './pages/Challenges.jsx';
+import MorePage from './pages/More.jsx';
 import AddHabitModal from './components/AddHabitModal.jsx';
 import AchievementToast from './components/AchievementToast.jsx';
 import Celebration from './components/Celebration.jsx';
+import Onboarding from './components/Onboarding.jsx';
 
 export default function App() {
   const { initData, inTelegram, tgTheme, hapticFeedback, tg } = useTelegram();
@@ -24,8 +29,18 @@ export default function App() {
   const [editingHabit, setEditingHabit] = useState(null);
   const [achievement, setAchievement] = useState(null);
   const [celebrate, setCelebrate] = useState(0);
+  const [settings, setSettings] = useState(null);
+  const [onboarded, setOnboarded] = useState(null);
 
   useEffect(() => { setInitData(initData); }, [initData]);
+
+  const loadSettings = async () => {
+    try {
+      const s = await api.getSettings();
+      setSettings(s);
+      setOnboarded(s.onboarded);
+    } catch {}
+  };
 
   const loadHabits = async () => {
     try {
@@ -36,24 +51,24 @@ export default function App() {
     setLoading(false);
   };
 
-  useEffect(() => { if (initData) loadHabits(); }, [initData]);
+  useEffect(() => {
+    if (initData) { loadHabits(); loadSettings(); }
+  }, [initData]);
 
   const persistTheme = async (theme) => {
     try { await api.updateSettings({ theme }); } catch {}
   };
 
-  const handleToggle = async (habitId, date) => {
+  const handleLog = async (habitId, payload) => {
     hapticFeedback('light');
-    const wasAllDone = habits.length > 0 && habits.filter((h) => h.logs.includes(date)).length === habits.length;
-
+    const prevHabits = habits;
     setHabits((prev) => prev.map((h) => {
       if (h.id !== habitId) return h;
-      const has = h.logs.includes(date);
-      return { ...h, logs: has ? h.logs.filter((d) => d !== date) : [...h.logs, date] };
+      const logs = (h.logs || []).filter((l) => l.date !== payload.date);
+      return { ...h, logs: [...logs, { date: payload.date, status: payload.status, value: payload.value }] };
     }));
-
     try {
-      const res = await api.toggleHabit(habitId, date);
+      const res = await api.logHabit(habitId, payload);
       if (res.newAchievements?.length > 0) {
         setAchievement(res.newAchievements[0]);
         hapticFeedback('heavy');
@@ -61,16 +76,27 @@ export default function App() {
       if (typeof res.streak === 'number') {
         setHabits((prev) => prev.map((h) => (h.id === habitId ? { ...h, streak: res.streak, best_streak: res.best_streak || h.best_streak } : h)));
       }
-      // Конфетти, если после отметки все привычки выполнены и до этого не были
-      const doneCount = habits.filter((h) => h.logs.includes(date) || h.id === habitId).length;
-      if (res.done && !wasAllDone && doneCount === habits.length && habits.length > 0) {
-        setCelebrate((c) => c + 1);
-        hapticFeedback('heavy');
+      // Конфетти при 100% дня
+      if (res.ok && payload.status === 'done') {
+        const doneCount = habits.filter((h) => (h.logs || []).some((l) => l.date === payload.date && l.status === 'done') || h.id === habitId).length;
+        const total = habits.length;
+        const wasAllDone = prevHabits.filter((h) => (h.logs || []).some((l) => l.date === payload.date && l.status === 'done')).length === total;
+        if (doneCount === total && !wasAllDone && total > 0) {
+          setCelebrate((c) => c + 1);
+          hapticFeedback('heavy');
+        }
       }
     } catch (e) {
       setError(e.message);
       loadHabits();
     }
+  };
+
+  const handleUnlog = async (habitId, date) => {
+    hapticFeedback('light');
+    setHabits((prev) => prev.map((h) => (h.id === habitId ? { ...h, logs: (h.logs || []).filter((l) => l.date !== date) } : h)));
+    try { await api.unlogHabit(habitId, date); }
+    catch (e) { setError(e.message); loadHabits(); }
   };
 
   const openCreate = () => { setEditingHabit(null); setModalOpen(true); };
@@ -80,15 +106,13 @@ export default function App() {
     try {
       if (editingHabit) {
         const updated = await api.updateHabit(editingHabit.id, data);
-        setHabits((prev) => prev.map((h) => (h.id === editingHabit.id ? { ...h, ...updated, logs: h.logs, streak: h.streak } : h)));
-        hapticFeedback('medium');
+        setHabits((prev) => prev.map((h) => (h.id === editingHabit.id ? { ...h, ...updated } : h)));
       } else {
         const created = await api.createHabit(data);
-        setHabits((prev) => [...prev, { ...created, logs: [], streak: 0 }]);
-        hapticFeedback('medium');
+        setHabits((prev) => [...prev, { ...created, logs: [], notes: {}, streak: 0 }]);
       }
-      setModalOpen(false);
-      setEditingHabit(null);
+      hapticFeedback('medium');
+      setModalOpen(false); setEditingHabit(null);
     } catch (e) { setError(e.message); }
   };
 
@@ -102,18 +126,26 @@ export default function App() {
   };
 
   const userName = inTelegram ? tg?.initDataUnsafe?.user?.first_name : '';
+  const activeSkin = settings?.active_theme || 'default';
 
   return (
-    <ThemeProvider telegramTheme={tgTheme} onPersist={persistTheme}>
+    <ThemeProvider telegramTheme={tgTheme} activeSkin={activeSkin} onPersist={persistTheme}>
       <div className="app">
         <header className="app-header">
           <h1 className="app-title">
             {page === 'home' && '🧠 MentalOS'}
             {page === 'stats' && '📊 Статистика'}
+            {page === 'challenges' && '🎯 Челленджи'}
+            {page === 'mood' && '😊 Настроение'}
             {page === 'rewards' && '🎁 Награды'}
-            {page === 'achievements' && '🏆 Достижения'}
+            {page === 'more' && '☰ Ещё'}
             {page === 'settings' && '⚙️ Настройки'}
+            {page === 'journal' && '📖 Дневник'}
+            {page === 'achievements' && '🏆 Достижения'}
           </h1>
+          {settings?.level > 0 && (
+            <div className="level-badge">Lv {settings.level}</div>
+          )}
         </header>
 
         {error && <div className="error-toast">{error}</div>}
@@ -123,7 +155,8 @@ export default function App() {
             <HomePage
               habits={habits}
               loading={loading}
-              onToggle={handleToggle}
+              onLog={handleLog}
+              onUnlog={handleUnlog}
               onDelete={handleDelete}
               onEdit={openEdit}
               onAdd={openCreate}
@@ -131,14 +164,16 @@ export default function App() {
             />
           )}
           {page === 'stats' && <StatsPage habits={habits} userName={userName} tg={tg} />}
-          {page === 'rewards' && <ReferralPage tg={tg} />}
+          {page === 'challenges' && <ChallengesPage />}
+          {page === 'mood' && <MoodPage />}
+          {page === 'rewards' && <ReferralPage tg={tg} onChange={loadSettings} />}
+          {page === 'more' && <MorePage onNavigate={setPage} />}
+          {page === 'settings' && <SettingsPage timezone={timezone} settings={settings} onChange={loadSettings} />}
+          {page === 'journal' && <JournalPage />}
           {page === 'achievements' && <AchievementsPage />}
-          {page === 'settings' && <SettingsPage timezone={timezone} />}
         </main>
 
-        {page === 'home' && (
-          <button className="fab" onClick={openCreate} aria-label="Добавить">+</button>
-        )}
+        {page === 'home' && <button className="fab" onClick={openCreate} aria-label="Добавить">+</button>}
 
         <BottomNav current={page} onChange={setPage} />
 
@@ -154,9 +189,9 @@ export default function App() {
         <AchievementToast achievement={achievement} onDone={() => setAchievement(null)} />
         <Celebration trigger={celebrate} />
 
-        {!inTelegram && (
-          <div className="dev-banner">🛠 Режим разработки. Открой внутри Telegram.</div>
-        )}
+        {onboarded === false && <Onboarding onDone={() => setOnboarded(true)} />}
+
+        {!inTelegram && <div className="dev-banner">🛠 Режим разработки. Открой внутри Telegram.</div>}
       </div>
     </ThemeProvider>
   );

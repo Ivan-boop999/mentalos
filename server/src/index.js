@@ -13,6 +13,10 @@ import settingsRouter from './routes/settings.js';
 import achievementsRouter from './routes/achievements.js';
 import categoriesRouter from './routes/categories.js';
 import referralRouter from './routes/referral.js';
+import moodRouter from './routes/mood.js';
+import journalRouter from './routes/journal.js';
+import challengesRouter from './routes/challenges.js';
+import exportRouter from './routes/export.js';
 import { initBot } from './bot/index.js';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
@@ -56,6 +60,10 @@ app.use('/api/settings', authMiddleware, settingsRouter);
 app.use('/api/achievements', authMiddleware, achievementsRouter);
 app.use('/api/categories', authMiddleware, categoriesRouter);
 app.use('/api/referral', authMiddleware, referralRouter);
+app.use('/api/mood', authMiddleware, moodRouter);
+app.use('/api/journal', authMiddleware, journalRouter);
+app.use('/api/challenges', authMiddleware, challengesRouter);
+app.use('/api/export', authMiddleware, exportRouter);
 
 // ===== Отдаём собранный фронтенд (статика) =====
 // Папка client/dist появляется после `npm run build` во фронтенде.
