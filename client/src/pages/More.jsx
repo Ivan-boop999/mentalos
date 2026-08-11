@@ -1,13 +1,12 @@
-import { Settings as SettingsIcon, BookOpen, Trophy, ChevronRight } from 'lucide-react';
+import { Settings as SettingsIcon, BookOpen, Trophy, ChevronRight, Crown, Archive as ArchiveIcon } from 'lucide-react';
 
-/**
- * Хаб-экран «Ещё»: отсюда доступ к Настройкам, Дневнику, Достижениям.
- */
 export default function MorePage({ onNavigate }) {
   const items = [
+    { key: 'leaderboard', title: 'Топ игроков', desc: 'Сравни прогресс с друзьями', Icon: Crown, color: '#F59E0B' },
     { key: 'settings', title: 'Настройки', desc: 'Тема, профиль, экспорт, часовой пояс', Icon: SettingsIcon, color: '#7C3AED' },
+    { key: 'achievements', title: 'Достижения', desc: 'Награды за серии и активность', Icon: Trophy, color: '#10B981' },
     { key: 'journal', title: 'Дневник', desc: 'Записи, мысли, благодарности', Icon: BookOpen, color: '#06B6D4' },
-    { key: 'achievements', title: 'Достижения', desc: 'Награды за серии и активность', Icon: Trophy, color: '#F59E0B' },
+    { key: 'archive', title: 'Архив', desc: 'Восстановить удалённые привычки', Icon: ArchiveIcon, color: '#64748B' },
   ];
 
   return (

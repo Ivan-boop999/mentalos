@@ -90,6 +90,19 @@ router.get('/', async (req, res) => {
     const todayIso = today.toISOString().slice(0, 10);
     const doneToday = (logsByDate[todayIso] || new Set()).size;
 
+    // ===== ТРЕНД/ПРОГНОЗ: сравнение первой и второй половины периода =====
+    const half = Math.floor(days / 2);
+    let firstHalf = 0, firstExpected = 0, secondHalf = 0, secondExpected = 0;
+    for (let i = 0; i < perDay.length; i++) {
+      const d = perDay[i];
+      if (i < half) { firstHalf += d.done; firstExpected += d.total; }
+      else { secondHalf += d.done; secondExpected += d.total; }
+    }
+    const firstRate = firstExpected ? (firstHalf / firstExpected) : 0;
+    const secondRate = secondExpected ? (secondHalf / secondExpected) : 0;
+    const trendDelta = Math.round((secondRate - firstRate) * 100); // в процентныхных пунктах
+    const trend = trendDelta > 2 ? 'up' : trendDelta < -2 ? 'down' : 'stable';
+
     res.json({
       totalHabits: habits.length,
       doneToday,
@@ -99,6 +112,7 @@ router.get('/', async (req, res) => {
       currentPerfectStreak,
       perDay,
       perHabit,
+      trend, trendDelta,
     });
   } catch (err) {
     console.error('GET /stats:', err);

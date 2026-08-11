@@ -1,32 +1,22 @@
 import { Router } from 'express';
 import pool from '../db/pool.js';
+import { TIERS } from './habits.js';
 
 const router = Router();
 
-/** Описание уровней достижений (используется и фронтом через GET) */
-export const ACHIEVEMENT_TIERS = [
-  { code: 'streak_7', threshold: 7, title: 'Неделя', emoji: '🔥', desc: '7 дней подряд' },
-  { code: 'streak_30', threshold: 30, title: 'Месяц', emoji: '💎', desc: '30 дней подряд' },
-  { code: 'streak_100', threshold: 100, title: 'Век', emoji: '🏆', desc: '100 дней подряд' },
-];
-
 /**
- * GET /api/achievements
- * Возвращает все достижения пользователя + статус по каждому уровню:
- *  - unlocked: уже полученные
- *  - progress: прогресс до следующей ступени (по лучшему streak среди привычек)
+ * GET /api/achievements — список всех уровней достижений + прогресс пользователя.
+ * Берёт полный список из TIERS (из habits.js), чтобы быть синхронным с начислениями.
  */
 router.get('/', async (req, res) => {
   const userId = req.userId;
   try {
-    // Все разблокированные
     const { rows: unlocked } = await pool.query(
       `SELECT code, habit_id, unlocked_at::text AS unlocked_at
        FROM achievements WHERE user_id = $1 ORDER BY unlocked_at DESC`,
       [userId],
     );
 
-    // Лучший текущий streak пользователя
     const { rows: habits } = await pool.query(
       `SELECT id, frequency FROM habits WHERE user_id = $1 AND archived = FALSE`,
       [userId],
@@ -34,7 +24,7 @@ router.get('/', async (req, res) => {
 
     const { rows: logs } = await pool.query(
       `SELECT habit_id, log_date::text AS date FROM habit_logs
-       WHERE user_id = $1 AND log_date >= CURRENT_DATE - INTERVAL '365 days'
+       WHERE user_id = $1 AND status = 'done' AND log_date >= CURRENT_DATE - INTERVAL '365 days'
        ORDER BY log_date`,
       [userId],
     );
@@ -53,7 +43,7 @@ router.get('/', async (req, res) => {
       if (s > bestStreak) bestStreak = s;
     }
 
-    const tiers = ACHIEVEMENT_TIERS.map((t) => {
+    const tiers = TIERS.map((t) => {
       const got = unlocked.some((u) => u.code === t.code);
       return {
         ...t,
@@ -66,7 +56,7 @@ router.get('/', async (req, res) => {
       tiers,
       unlocked: unlocked.map((u) => ({
         ...u,
-        tier: ACHIEVEMENT_TIERS.find((t) => t.code === u.code),
+        tier: TIERS.find((t) => t.code === u.code),
       })),
       bestStreak,
       totalUnlocked: unlocked.length,
@@ -87,12 +77,8 @@ function calcStreak(logDates, frequency) {
   for (let i = 0; i < 365; i++) {
     const iso = cursor.toISOString().slice(0, 10);
     const expected = !days || days.includes(cursor.getDay());
-    const marked = set.has(iso);
-    if (marked) {
-      streak++;
-    } else if (expected && i > 0) {
-      break;
-    }
+    if (set.has(iso)) streak++;
+    else if (expected && i > 0) break;
     cursor.setDate(cursor.getDate() - 1);
   }
   return streak;

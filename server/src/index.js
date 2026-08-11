@@ -8,6 +8,7 @@ import { existsSync, readFileSync } from 'node:fs';
 import pool from './db/pool.js';
 import { authMiddleware } from './middleware/auth.js';
 import habitsRouter from './routes/habits.js';
+import subtasksRouter from './routes/subtasks.js';
 import statsRouter from './routes/stats.js';
 import settingsRouter from './routes/settings.js';
 import achievementsRouter from './routes/achievements.js';
@@ -16,6 +17,7 @@ import referralRouter from './routes/referral.js';
 import moodRouter from './routes/mood.js';
 import journalRouter from './routes/journal.js';
 import challengesRouter from './routes/challenges.js';
+import leaderboardRouter from './routes/leaderboard.js';
 import exportRouter from './routes/export.js';
 import { initBot } from './bot/index.js';
 
@@ -55,6 +57,7 @@ app.get('/keep-alive', (_req, res) => res.json({ ok: true, t: Date.now() }));
 
 // ===== API (всё под защитой authMiddleware) =====
 app.use('/api/habits', authMiddleware, habitsRouter);
+app.use('/api/habits/:id/subtasks', authMiddleware, subtasksRouter);
 app.use('/api/stats', authMiddleware, statsRouter);
 app.use('/api/settings', authMiddleware, settingsRouter);
 app.use('/api/achievements', authMiddleware, achievementsRouter);
@@ -63,6 +66,7 @@ app.use('/api/referral', authMiddleware, referralRouter);
 app.use('/api/mood', authMiddleware, moodRouter);
 app.use('/api/journal', authMiddleware, journalRouter);
 app.use('/api/challenges', authMiddleware, challengesRouter);
+app.use('/api/leaderboard', authMiddleware, leaderboardRouter);
 app.use('/api/export', authMiddleware, exportRouter);
 
 // ===== Отдаём собранный фронтенд (статика) =====

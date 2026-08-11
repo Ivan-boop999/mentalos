@@ -113,10 +113,25 @@ export default function SettingsPage({ timezone = 'UTC', settings = {}, onChange
       {/* Экспорт данных */}
       <section className="settings-section">
         <h3 className="card-title">Данные</h3>
-        <a className="primary-btn ghost-btn" href={api.exportData()} download>
-          <Download size={16} /> Экспортировать в JSON
-        </a>
-        <p className="settings-hint">Полная резервная копия: привычки, история, заметки, настроение, дневник.</p>
+        <div style={{ display: 'flex', gap: 8 }}>
+          <a className="primary-btn ghost-btn" style={{ flex: 1 }} href={api.exportData()} download>
+            <Download size={16} /> JSON
+          </a>
+          <a className="primary-btn ghost-btn" style={{ flex: 1 }} href={api.exportCsvUrl()} download>
+            <Download size={16} /> CSV
+          </a>
+        </div>
+        <p className="settings-hint">Резервная копия: привычки, история, заметки, настроение, дневник.</p>
+      </section>
+
+      {/* Статистика профиля */}
+      <section className="settings-section">
+        <h3 className="card-title">Профиль</h3>
+        <div className="about-card">
+          <div className="about-row"><span>Всего отметок</span><strong>{settings.totalCheckins || 0}</strong></div>
+          <div className="about-row"><span>Уровень</span><strong>Lv {settings.level || 1}</strong></div>
+          <div className="about-row"><span>Бонусов</span><strong>🪙 {settings.bonus_balance || 0}</strong></div>
+        </div>
       </section>
 
       <section className="settings-section">

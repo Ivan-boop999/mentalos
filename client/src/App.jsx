@@ -14,15 +14,20 @@ import MoodPage from './pages/Mood.jsx';
 import JournalPage from './pages/Journal.jsx';
 import ChallengesPage from './pages/Challenges.jsx';
 import MorePage from './pages/More.jsx';
+import LeaderboardPage from './pages/Leaderboard.jsx';
+import ArchivePage from './pages/Archive.jsx';
 import AddHabitModal from './components/AddHabitModal.jsx';
 import AchievementToast from './components/AchievementToast.jsx';
+import LevelUpToast from './components/LevelUpToast.jsx';
 import Celebration from './components/Celebration.jsx';
 import Onboarding from './components/Onboarding.jsx';
 
 export default function App() {
   const { initData, inTelegram, tgTheme, hapticFeedback, tg } = useTelegram();
   const timezone = useTimezone(initData);
-  const { play: playSound, enabled: soundEnabled, setEnabled: setSoundEnabled } = useSound();
+  const [settings, setSettings] = useState(null);
+  const [onboarded, setOnboarded] = useState(null);
+  const { play: playSound, enabled: soundEnabled, setEnabled: setSoundEnabled } = useSound(settings?.active_theme || 'default');
   const [page, setPage] = useState('home');
   const [habits, setHabits] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -30,9 +35,10 @@ export default function App() {
   const [modalOpen, setModalOpen] = useState(false);
   const [editingHabit, setEditingHabit] = useState(null);
   const [achievement, setAchievement] = useState(null);
+  const [levelUp, setLevelUp] = useState(null);
   const [celebrate, setCelebrate] = useState(0);
-  const [settings, setSettings] = useState(null);
-  const [onboarded, setOnboarded] = useState(null);
+
+  useEffect(() => { setInitData(initData); }, [initData]);
 
   useEffect(() => { setInitData(initData); }, [initData]);
 
@@ -83,6 +89,12 @@ export default function App() {
         setAchievement(res.newAchievements[0]);
         hapticFeedback('heavy');
         playSound('success'); // фанфары достижения
+      }
+      if (res.leveledUp) {
+        setLevelUp(res.leveledUp);
+        hapticFeedback('heavy');
+        playSound('levelup'); // фанфары уровня
+        loadSettings(); // обновим Lv в шапке
       }
       if (typeof res.streak === 'number') {
         setHabits((prev) => prev.map((h) => (h.id === habitId ? { ...h, streak: res.streak, best_streak: res.best_streak || h.best_streak } : h)));
@@ -162,6 +174,8 @@ export default function App() {
             {page === 'settings' && '⚙️ Настройки'}
             {page === 'journal' && '📖 Дневник'}
             {page === 'achievements' && '🏆 Достижения'}
+            {page === 'leaderboard' && '👑 Топ'}
+            {page === 'archive' && '🗄️ Архив'}
           </h1>
           {settings?.level > 0 && (
             <div className="level-badge">Lv {settings.level}</div>
@@ -191,6 +205,8 @@ export default function App() {
           {page === 'settings' && <SettingsPage timezone={timezone} settings={settings} onChange={loadSettings} soundEnabled={soundEnabled} onToggleSound={() => setSoundEnabled(!soundEnabled)} />}
           {page === 'journal' && <JournalPage />}
           {page === 'achievements' && <AchievementsPage />}
+          {page === 'leaderboard' && <LeaderboardPage settings={settings} onChange={loadSettings} />}
+          {page === 'archive' && <ArchivePage />}
         </main>
 
         {page === 'home' && <button className="fab" onClick={openCreate} aria-label="Добавить">+</button>}
@@ -207,6 +223,7 @@ export default function App() {
         )}
 
         <AchievementToast achievement={achievement} onDone={() => setAchievement(null)} />
+        <LevelUpToast levelUp={levelUp} onDone={() => setLevelUp(null)} />
         <Celebration trigger={celebrate} />
 
         {onboarded === false && <Onboarding onDone={() => setOnboarded(true)} />}

@@ -507,6 +507,78 @@ input, textarea { font-family: inherit; }
 .celebrate-piece { position: absolute; width: 10px; height: 14px; top: -20px; animation: fall 2.5s linear forwards; }
 @keyframes fall { to { transform: translateY(105vh) rotate(720deg); } }
 
+/* ===== Level-up toast ===== */
+.lvl-overlay { z-index: 210; }
+.lvl-toast { border-color: #F59E0B; box-shadow: 0 24px 70px rgba(245, 158, 11, 0.5); }
+.lvl-icon-wrap { display: flex; justify-content: center; margin-bottom: 14px; }
+.lvl-icon {
+  width: 90px; height: 90px; border-radius: 24px;
+  background: linear-gradient(135deg, #F59E0B, #EC4899);
+  color: #fff; display: flex; align-items: center; justify-content: center;
+  font-size: 24px; font-weight: 800;
+  box-shadow: 0 12px 30px rgba(245, 158, 11, 0.5);
+  animation: pulse 1.2s ease-in-out infinite;
+}
+@keyframes pulse { 0%,100% { transform: scale(1); } 50% { transform: scale(1.06); } }
+.lvl-from-to { font-size: 22px; font-weight: 800; margin-bottom: 6px; color: #fff; }
+.lvl-toast .ach-title { color: #FBBF24; }
+
+/* ===== Habit Strength Score (как Loop) ===== */
+.strength-block { margin-top: 10px; padding: 10px; background: var(--bg); border-radius: 12px; }
+.strength-header { display: flex; align-items: center; gap: 6px; font-size: 12px; font-weight: 700; color: var(--text-muted); margin-bottom: 8px; }
+.strength-bar { height: 8px; background: var(--day-dot-empty); border-radius: 999px; overflow: hidden; margin-bottom: 4px; }
+.strength-fill { height: 100%; background: var(--gradient-main); border-radius: 999px; transition: width 0.5s ease; }
+
+/* ===== Sub-tasks ===== */
+.subtasks-block { margin-top: 10px; padding: 10px; background: var(--bg); border-radius: 12px; }
+.subtask-list { display: flex; flex-direction: column; gap: 6px; margin-bottom: 8px; }
+.subtask-row { display: flex; align-items: center; gap: 8px; padding: 4px 0; }
+.subtask-check { width: 20px; height: 20px; border-radius: 6px; background: var(--day-dot-empty); border: none; display: flex; align-items: center; justify-content: center; color: #fff; flex-shrink: 0; transition: all 0.2s ease; }
+.subtask-check.done { background: var(--gradient-main); }
+.subtask-title { flex: 1; font-size: 13px; }
+.subtask-title.done { text-decoration: line-through; color: var(--text-dim); }
+.subtask-add { display: flex; gap: 6px; }
+.subtask-input { flex: 1; padding: 8px 10px; background: var(--card); border: 1px solid var(--border); border-radius: 8px; color: var(--text); font-size: 12px; outline: none; }
+.subtask-add-btn { width: 32px; height: 32px; border-radius: 8px; background: var(--gradient-main); color: #fff; display: flex; align-items: center; justify-content: center; }
+
+/* ===== Trend badge (Stats) ===== */
+.trend-badge { display: inline-flex; align-items: center; gap: 3px; font-size: 11px; font-weight: 800; padding: 3px 9px; border-radius: 999px; margin-left: 8px; vertical-align: middle; }
+.trend-badge.up { color: #10B981; background: rgba(16,185,129,.15); }
+.trend-badge.down { color: #EF4444; background: rgba(239,68,68,.15); }
+.trend-badge.stable { color: var(--text-muted); background: var(--card-hover); }
+
+/* ===== Leaderboard ===== */
+.lb-hero { border-radius: var(--radius-lg); padding: 24px; text-align: center; margin-bottom: 18px; }
+.lb-hero h2 { margin: 8px 0 4px; font-size: 22px; font-weight: 800; }
+.lb-hero p { margin: 0; font-size: 13px; color: var(--text-muted); }
+
+.podium { display: grid; grid-template-columns: 1fr 1.2fr 1fr; gap: 6px; align-items: end; margin-bottom: 20px; }
+.podium-slot { display: flex; flex-direction: column; align-items: center; gap: 4px; position: relative; }
+.podium-avatar { width: 56px; height: 56px; border-radius: 50%; background: var(--gradient-main); color: #fff; display: flex; align-items: center; justify-content: center; font-weight: 800; font-size: 20px; border: 3px solid; }
+.podium-name { font-size: 12px; font-weight: 700; max-width: 90px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.podium-xp { font-size: 11px; color: var(--text-muted); }
+.podium-base { display: flex; align-items: center; justify-content: center; gap: 4px; width: 100%; max-width: 90px; color: #fff; font-weight: 800; font-size: 18px; border-radius: 10px 10px 0 0; padding: 8px 0; }
+.podium-slot.place-1 .poodium-base { padding: 14px 0; }
+.podium-me { position: absolute; top: -8px; background: var(--accent); color: #fff; font-size: 9px; padding: 2px 8px; border-radius: 999px; font-weight: 800; }
+
+.lb-list { display: flex; flex-direction: column; gap: 6px; margin-bottom: 16px; }
+.lb-row { display: flex; align-items: center; gap: 10px; padding: 12px 14px; background: var(--card); border: 1px solid var(--border); border-radius: 14px; }
+.lb-row.me { border-color: var(--accent); background: var(--accent-soft); }
+.lb-rank { width: 32px; font-weight: 800; color: var(--text-muted); font-size: 13px; }
+.lb-avatar { width: 36px; height: 36px; border-radius: 50%; background: var(--gradient-main); color: #fff; display: flex; align-items: center; justify-content: center; font-weight: 800; flex-shrink: 0; }
+.lb-info { flex: 1; display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.lb-info strong { font-size: 14px; }
+.lb-tag { display: inline-block; background: var(--accent); color: #fff; font-size: 9px; padding: 1px 6px; border-radius: 999px; font-weight: 800; margin-left: 4px; }
+.lb-xp { font-weight: 800; font-size: 14px; color: var(--accent); }
+
+/* ===== Archive ===== */
+.archive-list { display: flex; flex-direction: column; gap: 8px; }
+.archive-row { display: flex; align-items: center; gap: 12px; padding: 14px; background: var(--card); border: 1px solid var(--border); border-radius: 14px; }
+.archive-emoji { font-size: 24px; }
+.archive-info { flex: 1; display: flex; flex-direction: column; }
+.archive-info strong { font-size: 14px; }
+.archive-restore { padding: 8px 12px !important; font-size: 11px !important; flex-shrink: 0; }
+
 /* ===== Settings ===== */
 .settings-section { margin-bottom: 24px; }
 .theme-options { display: flex; flex-direction: column; gap: 10px; }
@@ -756,8 +828,13 @@ input, textarea { font-family: inherit; }
 .skin-chip.active { border-color: var(--accent); background: var(--accent-soft); }
 .skin-chip.locked { opacity: 0.7; }
 
-.ghost-btn { background: var(--glass) !important; color: var(--accent); border: 1.5px solid var(--accent); text-decoration: none; }
-.glass-btn:active { background: var(--accent-soft); }
+.ghost-btn { background: var(--glass) !important; color: var(--accent); border: 1.5px solid var(--accent); text-decoration: none; display: inline-flex; align-items: center; justify-content: center; gap: 8px; }
+.ghost-btn:active { background: var(--accent-soft); }
+
+/* Goal row (число + единица) */
+.goal-row { display: flex; gap: 8px; }
+.goal-row .input { flex: 1; }
+.goal-row select.input { flex: 0 0 35%; }
 
 /* ===== Quote of the day ===== */
 .quote-card {

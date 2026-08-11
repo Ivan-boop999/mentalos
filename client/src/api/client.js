@@ -20,6 +20,8 @@ async function request(path, options = {}) {
 export const api = {
   // Habits
   getHabits: () => request('/api/habits'),
+  getArchived: () => request('/api/habits/archived'),
+  restoreHabit: (id) => request(`/api/habits/${id}/restore`, { method: 'POST' }),
   createHabit: (data) => request('/api/habits', { method: 'POST', body: JSON.stringify(data) }),
   updateHabit: (id, data) => request(`/api/habits/${id}`, { method: 'PUT', body: JSON.stringify(data) }),
   deleteHabit: (id) => request(`/api/habits/${id}`, { method: 'DELETE' }),
@@ -27,6 +29,13 @@ export const api = {
   unlogHabit: (id, date) => request(`/api/habits/${id}/unlog`, { method: 'POST', body: JSON.stringify({ date }) }),
   getCalendar: (id, months = 3) => request(`/api/habits/calendar?id=${id}&months=${months}`),
   getYearHeatmap: () => request('/api/habits/year-heatmap'),
+  getStrength: (id) => request(`/api/habits/${id}/strength`),
+
+  // Sub-tasks
+  getSubtasks: (habitId) => request(`/api/habits/${habitId}/subtasks`),
+  addSubtask: (habitId, title) => request(`/api/habits/${habitId}/subtasks`, { method: 'POST', body: JSON.stringify({ title }) }),
+  updateSubtask: (habitId, subId, data) => request(`/api/habits/${habitId}/subtasks/${subId}`, { method: 'PUT', body: JSON.stringify(data) }),
+  deleteSubtask: (habitId, subId) => request(`/api/habits/${habitId}/subtasks/${subId}`, { method: 'DELETE' }),
 
   // Stats
   getStats: (days = 7) => request(`/api/stats?days=${days}`),
@@ -65,6 +74,11 @@ export const api = {
   joinChallenge: (id) => request(`/api/challenges/${id}/join`, { method: 'POST' }),
   abandonChallenge: (id) => request(`/api/challenges/${id}/abandon`, { method: 'POST' }),
 
+  // Leaderboard
+  getLeaderboard: () => request('/api/leaderboard'),
+  setPublicProfile: (pub) => request('/api/leaderboard/visibility', { method: 'PUT', body: JSON.stringify({ public: pub }) }),
+
   // Export
   exportData: () => '/api/export',
+  exportCsvUrl: () => '/api/export/csv',
 };

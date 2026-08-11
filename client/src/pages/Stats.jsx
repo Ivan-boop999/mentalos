@@ -93,7 +93,14 @@ export default function StatsPage({ habits = [], userName = '', tg }) {
       </div>
 
       <div className="chart-card">
-        <h3 className="card-title">Активность за период</h3>
+        <h3 className="card-title">
+          Активность за период
+          {stats.trend && (
+            <span className={`trend-badge ${stats.trend}`}>
+              {stats.trend === 'up' ? '↗️' : stats.trend === 'down' ? '↘️' : '→'} {stats.trendDelta > 0 ? '+' : ''}{stats.trendDelta}%
+            </span>
+          )}
+        </h3>
         <ResponsiveContainer width="100%" height={200}>
           <AreaChart data={chartData} margin={{ top: 10, right: 5, left: -20, bottom: 0 }}>
             <defs>

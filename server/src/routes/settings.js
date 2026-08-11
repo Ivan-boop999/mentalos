@@ -7,7 +7,8 @@ const router = Router();
 router.get('/', async (req, res) => {
   try {
     const { rows } = await pool.query(
-      `SELECT theme, timezone, onboarded, xp, level, active_theme, bonus_balance, owned_themes
+      `SELECT theme, timezone, onboarded, xp, level, active_theme, bonus_balance, owned_themes,
+              total_checkins, public_profile
        FROM users WHERE id = $1`,
       [req.userId],
     );
@@ -19,7 +20,7 @@ router.get('/', async (req, res) => {
     }
     if (!Array.isArray(owned)) owned = ['default'];
     if (!owned.includes('default')) owned = ['default', ...owned];
-    res.json({ ...r, ownedThemes: owned });
+    res.json({ ...r, ownedThemes: owned, totalCheckins: r.total_checkins || 0, publicProfile: !!r.public_profile });
   } catch (err) {
     console.error('GET settings:', err);
     res.status(500).json({ error: 'Ошибка сервера' });

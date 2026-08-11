@@ -124,6 +124,17 @@ CREATE TABLE IF NOT EXISTS user_challenges (
     UNIQUE (user_id, challenge_id, status)
 );
 
+-- Подзадачи (sub-tasks) внутри привычек
+CREATE TABLE IF NOT EXISTS habit_subtasks (
+    id              SERIAL PRIMARY KEY,
+    habit_id        INTEGER NOT NULL REFERENCES habits(id) ON DELETE CASCADE,
+    user_id         BIGINT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    title           TEXT NOT NULL,
+    done            BOOLEAN NOT NULL DEFAULT FALSE,
+    sort_order      INTEGER NOT NULL DEFAULT 0,
+    created_at      TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
 -- ===== ДОБАВЛЯЕМ КОЛОНКИ (идемпотентно) =====
 DO $$ BEGIN ALTER TABLE users ADD COLUMN timezone TEXT NOT NULL DEFAULT 'UTC';              EXCEPTION WHEN duplicate_column THEN NULL; END $$;
 DO $$ BEGIN ALTER TABLE users ADD COLUMN bonus_balance INTEGER NOT NULL DEFAULT 0;          EXCEPTION WHEN duplicate_column THEN NULL; END $$;
@@ -134,6 +145,8 @@ DO $$ BEGIN ALTER TABLE users ADD COLUMN xp INTEGER NOT NULL DEFAULT 0;         
 DO $$ BEGIN ALTER TABLE users ADD COLUMN level INTEGER NOT NULL DEFAULT 1;                  EXCEPTION WHEN duplicate_column THEN NULL; END $$;
 DO $$ BEGIN ALTER TABLE users ADD COLUMN active_theme TEXT NOT NULL DEFAULT 'default';      EXCEPTION WHEN duplicate_column THEN NULL; END $$;
 DO $$ BEGIN ALTER TABLE users ADD COLUMN owned_themes JSONB NOT NULL DEFAULT '[]'::jsonb;   EXCEPTION WHEN duplicate_column THEN NULL; END $$;
+DO $$ BEGIN ALTER TABLE users ADD COLUMN total_checkins INTEGER NOT NULL DEFAULT 0;         EXCEPTION WHEN duplicate_column THEN NULL; END $$;
+DO $$ BEGIN ALTER TABLE users ADD COLUMN public_profile BOOLEAN NOT NULL DEFAULT FALSE;     EXCEPTION WHEN duplicate_column THEN NULL; END $$;
 
 DO $$ BEGIN ALTER TABLE habits ADD COLUMN category_id INTEGER REFERENCES categories(id) ON DELETE SET NULL; EXCEPTION WHEN duplicate_column THEN NULL; END $$;
 DO $$ BEGIN ALTER TABLE habits ADD COLUMN best_streak INTEGER NOT NULL DEFAULT 0;           EXCEPTION WHEN duplicate_column THEN NULL; END $$;
@@ -155,7 +168,7 @@ INSERT INTO challenges (code, title, description, emoji, color, duration_days, h
 VALUES
   ('water_30', '30 дней воды 💧', 'Пей воду каждый день — почувствуй разницу в самочувствии', '💧', '#06B6D4', 30,
    '[{"title":"Пить 2л воды","emoji":"💧","color":"#06B6D4"}]'),
-  ('morning_21', '21 день早起挑战', 'Вставай в одно и то же время — настрой биоритмы', '🌅', '#F59E0B', 21,
+  ('morning_21', '21 день раннего подъёма', 'Вставай в одно и то же время — настрой биоритмы', '🌅', '#F59E0B', 21,
    '[{"title":"Ранний подъём","emoji":"🌅","color":"#F59E0B"},{"title":"Зарядка","emoji":"💪","color":"#EF4444"}]'),
   ('mindfulness_14', '14 дней осознанности 🧘', 'Медитация и дыхательные практики для спокойствия', '🧘', '#10B981', 14,
    '[{"title":"Медитация 10 мин","emoji":"🧘","color":"#10B981"}]'),
@@ -179,4 +192,18 @@ CREATE INDEX IF NOT EXISTS idx_notes_user ON habit_notes(user_id);
 CREATE INDEX IF NOT EXISTS idx_moods_user_date ON moods(user_id, log_date);
 CREATE INDEX IF NOT EXISTS idx_journal_user ON journal_entries(user_id);
 CREATE INDEX IF NOT EXISTS idx_uc_user ON user_challenges(user_id);
+CREATE INDEX IF NOT EXISTS idx_subtasks_habit ON habit_subtasks(habit_id);
 CREATE UNIQUE INDEX IF NOT EXISTS uq_referral_code ON users(referral_code);
+
+-- ===== Seed HABIT TEMPLATES (для библиотеки) =====
+INSERT INTO challenges (code, title, description, emoji, color, duration_days, habit_templates)
+VALUES
+  ('tpl_health', '🌱 Здоровье', 'Подборка для здоровья', '🌱', '#10B981', 0,
+   '[{"title":"Пить 2л воды","emoji":"💧","color":"#06B6D4"},{"title":"8 часов сна","emoji":"😴","color":"#6366F1"},{"title":"10к шагов","emoji":"🚶","color":"#10B981"}]'),
+  ('tpl_study', '📚 Учёба и фокус', 'Библиотека для учебы', '📚', '#7C3AED', 0,
+   '[{"title":"Читать 30 минут","emoji":"📚","color":"#7C3AED"},{"title":"Учить 10 слов","emoji":"✍️","color":"#6366F1"},{"title":"Без телефона 1 час","emoji":"📵","color":"#EF4444"}]'),
+  ('tpl_sport', '💪 Спорт', 'Спортивные привычки', '💪', '#EF4444', 0,
+   '[{"title":"Зарядка 15 мин","emoji":"💪","color":"#EF4444"},{"title":"Отжимания 30","emoji":"🏋️","color":"#F59E0B"},{"title":"Растяжка","emoji":"🤸","color":"#06B6D4"}]'),
+  ('tpl_mind', '🧘 Психика', 'Душевное равновесие', '🧘', '#06B6D4', 0,
+   '[{"title":"Медитация 10 мин","emoji":"🧘","color":"#10B981"},{"title":"Дневник благодарностей","emoji":"🙏","color":"#EC4899"},{"title":"Глубокое дыхание","emoji":"🌬️","color":"#06B6D4"}]')
+ON CONFLICT (code) DO NOTHING;
