@@ -1,0 +1,21 @@
+{
+  "name": "mentalos-server",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "description": "MentalOS backend: Express + PostgreSQL + Telegram bot",
+  "main": "src/index.js",
+  "scripts": {
+    "start": "node src/index.js",
+    "dev": "node --watch src/index.js",
+    "migrate": "node src/db/migrate.js"
+  },
+  "dependencies": {
+    "cors": "^2.8.5",
+    "dotenv": "^16.4.5",
+    "express": "^4.21.2",
+    "node-cron": "^3.0.3",
+    "node-telegram-bot-api": "^0.66.0",
+    "pg": "^8.13.1"
+  }
+}

@@ -1,0 +1,37 @@
+# Зависимости
+node_modules/
+client/node_modules/
+server/node_modules/
+
+# Сборка
+client/dist/
+dist/
+build/
+
+# Переменные окружения (СЕКРЕТНЫЕ — никогда в GitHub!)
+.env
+.env.local
+.env.production
+client/.env
+server/.env
+
+# Логи
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# OS файлы
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# Редакторы
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Telegram WebApp SDK (если скачаем локально)
+telegram-web-app.js
+.zcode/

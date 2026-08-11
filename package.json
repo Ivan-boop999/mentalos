@@ -1,0 +1,18 @@
+{
+  "name": "mentalos",
+  "version": "1.0.0",
+  "private": true,
+  "description": "MentalOS — Telegram Mini App «Трекер привычек»",
+  "scripts": {
+    "install:all": "npm install && npm --prefix server install && npm --prefix client install",
+    "dev:server": "npm --prefix server run dev",
+    "dev:client": "npm --prefix client run dev",
+    "build:client": "npm --prefix client run build",
+    "db:migrate": "npm --prefix server run migrate",
+    "start": "npm --prefix server start"
+  },
+  "workspaces": [
+    "client",
+    "server"
+  ]
+}

@@ -1,0 +1,74 @@
+/* ============================================================
+   MentalOS — Темы оформления (CSS-переменные)
+   ============================================================
+   Светлая и тёмная темы. Переключаются атрибутом
+   data-theme="light" | "dark" на элементе <html>.
+   ============================================================ */
+
+:root {
+  /* Акценты (одинаковые для обеих тем) */
+  --accent: #7C3AED;
+  --accent-default: #7C3AED; /* для графиков recharts */
+  --accent-hover: #6D28D9;
+  --accent-soft: rgba(124, 58, 237, 0.12);
+
+  /* Радиусы */
+  --radius-sm: 10px;
+  --radius-md: 16px;
+  --radius-lg: 22px;
+
+  /* Тени */
+  --shadow-card: 0 4px 20px rgba(0, 0, 0, 0.06);
+  --shadow-float: 0 10px 30px rgba(0, 0, 0, 0.12);
+
+  /* Размерная сетка */
+  --nav-h: 64px;
+  --header-h: 60px;
+  --max-w: 520px;
+}
+
+/* ===== СВЕТЛАЯ ТЕМА (по умолчанию) ===== */
+:root,
+[data-theme='light'] {
+  --bg: #F7F7FB;
+  --bg-elevated: #FFFFFF;
+  --card: #FFFFFF;
+  --card-hover: #FAFAFE;
+  --border: #ECECF3;
+  --text: #14141F;
+  --text-muted: #8B8B9A;
+  --text-dim: #B0B0BE;
+
+  --check-empty: #ECECF3;
+  --check-fill: var(--accent);
+  --day-dot-empty: #E2E2EC;
+  --danger: #EF4444;
+  --danger-soft: rgba(239, 68, 68, 0.1);
+
+  --chart-grid: #ECECF3;
+  --shadow-card: 0 4px 20px rgba(20, 20, 40, 0.05);
+  --shadow-float: 0 12px 32px rgba(124, 58, 237, 0.18);
+}
+
+/* ===== ТЁМНАЯ ТЕМА ===== */
+[data-theme='dark'] {
+  --bg: #0E0E14;
+  --bg-elevated: #16161F;
+  --card: #1A1A24;
+  --card-hover: #20202C;
+  --border: #26262F;
+  --text: #F4F4F8;
+  --text-muted: #8A8AA0;
+  --text-dim: #5A5A70;
+
+  --check-empty: #2A2A36;
+  --check-fill: var(--accent);
+  --day-dot-empty: #2A2A36;
+  --danger: #F87171;
+  --danger-soft: rgba(248, 113, 113, 0.14);
+
+  --accent-soft: rgba(124, 58, 237, 0.18);
+  --chart-grid: #26262F;
+  --shadow-card: 0 6px 24px rgba(0, 0, 0, 0.35);
+  --shadow-float: 0 14px 38px rgba(124, 58, 237, 0.3);
+}
