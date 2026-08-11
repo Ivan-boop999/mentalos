@@ -1,9 +1,9 @@
 import { useEffect, useState } from 'react';
 import { useTheme } from '../context/ThemeContext';
 import { api } from '../api/client';
-import { Sun, Moon, Monitor } from 'lucide-react';
+import { Sun, Moon, Monitor, Clock } from 'lucide-react';
 
-export default function SettingsPage() {
+export default function SettingsPage({ timezone = 'UTC' }) {
   const { mode, setMode } = useTheme();
   const [serverTheme, setServerTheme] = useState(null);
 
@@ -51,13 +51,27 @@ export default function SettingsPage() {
         <div className="about-card">
           <div className="about-row">
             <span>MentalOS</span>
-            <span className="muted">версия 1.0</span>
+            <span className="muted">версия 1.1</span>
           </div>
           <div className="about-row">
             <span>Telegram Mini App</span>
             <span className="muted">React + Node.js</span>
           </div>
         </div>
+      </section>
+
+      <section className="settings-section">
+        <h3 className="card-title">Часовой пояс</h3>
+        <div className="tz-card">
+          <Clock size={20} />
+          <div>
+            <strong>{timezone}</strong>
+            <span className="muted small">Напоминания приходят по этому времени</span>
+          </div>
+        </div>
+        <p className="settings-hint">
+          Часовой пояс определяется автоматически по устройству. Если он неверный — проверь настройки даты/времени телефона.
+        </p>
       </section>
 
       <p className="settings-hint">

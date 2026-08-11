@@ -10,8 +10,9 @@ import {
 } from 'recharts';
 import { api } from '../api/client';
 import { Flame, CheckCircle2, TrendingUp, Trophy } from 'lucide-react';
+import ShareButton from '../components/ShareButton.jsx';
 
-export default function StatsPage() {
+export default function StatsPage({ habits = [], userName = '', tg }) {
   const [days, setDays] = useState(7);
   const [stats, setStats] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -131,6 +132,8 @@ export default function StatsPage() {
           </div>
         ))}
       </div>
+
+      <ShareButton userName={userName} stats={stats} habits={habits} tg={tg} />
     </div>
   );
 }

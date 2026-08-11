@@ -10,6 +10,7 @@ import { authMiddleware } from './middleware/auth.js';
 import habitsRouter from './routes/habits.js';
 import statsRouter from './routes/stats.js';
 import settingsRouter from './routes/settings.js';
+import achievementsRouter from './routes/achievements.js';
 import { initBot } from './bot/index.js';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
@@ -47,6 +48,10 @@ app.get('/health', (_req, res) => res.json({ ok: true, name: 'MentalOS' }));
 app.use('/api/habits', authMiddleware, habitsRouter);
 app.use('/api/stats', authMiddleware, statsRouter);
 app.use('/api/settings', authMiddleware, settingsRouter);
+app.use('/api/achievements', authMiddleware, achievementsRouter);
+
+// Экспорт-эндпоинт для шеринга в сторис (генерит PNG статистики)
+// Подключим ниже в файле
 
 // ===== Отдаём собранный фронтенд (статика) =====
 // Папка client/dist появляется после `npm run build` во фронтенде.

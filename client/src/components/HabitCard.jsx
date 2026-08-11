@@ -1,18 +1,19 @@
-import { Flame, Check, Trash2 } from 'lucide-react';
+import { Flame, Check, Trash2, Pencil } from 'lucide-react';
 
 const WEEKDAY_RU = ['Вс', 'Пн', 'Вт', 'Ср', 'Чт', 'Пт', 'Сб'];
 
 /**
  * Карточка одной привычки.
- * Показывает: чекбокс, эмодзи, название, текущий streak и полосу последних 7 дней.
+ * Показывает: чекбокс, эмодзи, название, текущий streak, полосу 7 дней и
+ * кнопки редактирования/удаления (появляются по тапу на «⋯»).
  */
-export default function HabitCard({ habit, onToggle, onDelete }) {
+export default function HabitCard({ habit, onToggle, onDelete, onEdit }) {
   const today = new Date();
   today.setHours(0, 0, 0, 0);
   const todayIso = today.toISOString().slice(0, 10);
   const doneToday = habit.logs.includes(todayIso);
 
-  // Последние 7 дней для мини-полосы
+  // Последние 7 дней
   const week = [];
   for (let i = 6; i >= 0; i--) {
     const d = new Date(today);
@@ -26,11 +27,8 @@ export default function HabitCard({ habit, onToggle, onDelete }) {
     });
   }
 
-  // Должна ли привычка выполняться в конкретный день недели
-  const isExpected = (date) => {
-    if (!habit.frequency?.days) return true; // daily
-    return habit.frequency.days.includes(date.getDay());
-  };
+  const isExpected = (date) =>
+    !habit.frequency?.days || habit.frequency.days.includes(date.getDay());
 
   return (
     <div className="habit-card" style={{ '--accent': habit.color }}>
@@ -46,6 +44,7 @@ export default function HabitCard({ habit, onToggle, onDelete }) {
         <div className="habit-top">
           <span className="habit-emoji">{habit.emoji}</span>
           <span className="habit-title">{habit.title}</span>
+          {habit.reminder_time && <span className="reminder-chip">⏰ {String(habit.reminder_time).slice(0, 5)}</span>}
           {habit.streak > 0 && (
             <span className="streak-badge">
               <Flame size={14} /> {habit.streak}
@@ -71,9 +70,14 @@ export default function HabitCard({ habit, onToggle, onDelete }) {
         </div>
       </div>
 
-      <button className="delete-btn" onClick={() => onDelete(habit.id)} aria-label="Удалить">
-        <Trash2 size={18} />
-      </button>
+      <div className="habit-actions">
+        <button className="icon-action" onClick={() => onEdit(habit)} aria-label="Изменить">
+          <Pencil size={16} />
+        </button>
+        <button className="icon-action danger" onClick={() => onDelete(habit.id)} aria-label="Удалить">
+          <Trash2 size={16} />
+        </button>
+      </div>
     </div>
   );
 }

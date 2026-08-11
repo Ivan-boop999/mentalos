@@ -1,20 +1,38 @@
 import { useState } from 'react';
 import { X } from 'lucide-react';
 
-const EMOJIS = ['✨', '💪', '📚', '🏃', '💧', '🧘', '🥗', '😴', '✍️', '🎯', '🎨', '🎸', '💊', '🦷', '☀️', '🌙'];
-const COLORS = ['#7C3AED', '#6366F1', '#0EA5E9', '#10B981', '#F59E0B', '#EF4444', '#EC4899', '#8B5CF6'];
+const EMOJIS = [
+  '✨', '💪', '📚', '🏃', '💧', '🧘', '🥗', '😴',
+  '✍️', '🎯', '🎨', '🎸', '💊', '🦷', '☀️', '🌙',
+  '☕', '🚭', '🚶', '🏋️', '🤸', '🥦', '🍎', '🧠',
+  '❤️', '🙏', '🛏️', '🪥', '💻', '🌱', '⏰', '🎧',
+];
+const COLORS = [
+  '#7C3AED', '#6366F1', '#3B82F6', '#0EA5E9', '#06B6D4', '#10B981', '#22C55E', '#84CC16',
+  '#F59E0B', '#F97316', '#EF4444', '#EC4899', '#D946EF', '#A855F7', '#8B5CF6', '#64748B',
+];
 const DAYS = [
   { n: 1, label: 'Пн' }, { n: 2, label: 'Вт' }, { n: 3, label: 'Ср' },
   { n: 4, label: 'Чт' }, { n: 5, label: 'Пт' }, { n: 6, label: 'Сб' }, { n: 0, label: 'Вс' },
 ];
 
-export default function AddHabitModal({ onClose, onSubmit }) {
-  const [title, setTitle] = useState('');
-  const [emoji, setEmoji] = useState('✨');
-  const [color, setColor] = useState('#7C3AED');
-  const [freqType, setFreqType] = useState('daily'); // daily | weekly
-  const [days, setDays] = useState([1, 2, 3, 4, 5]); // будни по умолчанию
-  const [reminder, setReminder] = useState('');
+/**
+ * Универсальная модалка: создаёт или редактирует привычку.
+ * Если передать habit — режим редактирования (поля предзаполнены).
+ */
+export default function AddHabitModal({ onClose, onSubmit, habit = null, timezone = 'UTC' }) {
+  const editing = !!habit;
+
+  const [title, setTitle] = useState(habit?.title || '');
+  const [emoji, setEmoji] = useState(habit?.emoji || '✨');
+  const [color, setColor] = useState(habit?.color || '#7C3AED');
+  const [freqType, setFreqType] = useState(habit?.frequency?.type === 'weekly' ? 'weekly' : 'daily');
+  const [days, setDays] = useState(
+    habit?.frequency?.days || [1, 2, 3, 4, 5],
+  );
+  const [reminder, setReminder] = useState(
+    habit?.reminder_time ? String(habit.reminder_time).slice(0, 5) : '',
+  );
 
   const toggleDay = (n) =>
     setDays((prev) => (prev.includes(n) ? prev.filter((d) => d !== n) : [...prev, n].sort()));
@@ -35,7 +53,7 @@ export default function AddHabitModal({ onClose, onSubmit }) {
     <div className="modal-overlay" onClick={onClose}>
       <div className="modal" onClick={(e) => e.stopPropagation()}>
         <header className="modal-header">
-          <h2>Новая привычка</h2>
+          <h2>{editing ? 'Редактировать' : 'Новая привычка'}</h2>
           <button className="icon-btn" onClick={onClose}><X size={22} /></button>
         </header>
 
@@ -70,7 +88,7 @@ export default function AddHabitModal({ onClose, onSubmit }) {
                 type="button"
                 key={c}
                 className={`color-chip ${color === c ? 'active' : ''}`}
-                style={{ background: c }}
+                style={{ background: c, color: c }}
                 onClick={() => setColor(c)}
               />
             ))}
@@ -109,17 +127,21 @@ export default function AddHabitModal({ onClose, onSubmit }) {
             </div>
           )}
 
-          <label className="field-label">Напоминание (время UTC)</label>
+          <label className="field-label">
+            Напоминание <span className="muted small">(по твоему времени: {timezone})</span>
+          </label>
           <input
             type="time"
             className="input"
             value={reminder}
             onChange={(e) => setReminder(e.target.value)}
           />
-          <p className="hint">Оставь пустым, если без напоминания. Время по UTC — учитывай смещение твоего часового пояса.</p>
+          <p className="hint">
+            Оставь пустым, если без напоминания. Время по твоему часовому поясу.
+          </p>
 
           <button type="submit" className="primary-btn" disabled={!title.trim()}>
-            Создать привычку
+            {editing ? 'Сохранить' : 'Создать привычку'}
           </button>
         </form>
       </div>

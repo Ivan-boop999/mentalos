@@ -823,3 +823,309 @@ textarea {
   overflow: hidden;
   text-overflow: ellipsis;
 }
+
+/* ===== Habit actions (edit/delete) ===== */
+.habit-actions {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  flex-shrink: 0;
+  align-self: flex-start;
+  margin-top: 2px;
+}
+
+.icon-action {
+  width: 30px;
+  height: 30px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--text-dim);
+  border-radius: 8px;
+  transition: color 0.2s ease, background 0.2s ease;
+}
+
+.icon-action:active {
+  background: var(--card-hover);
+}
+
+.icon-action.danger:active {
+  color: var(--danger);
+  background: var(--danger-soft);
+}
+
+.reminder-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--text-muted);
+  background: var(--card-hover);
+  padding: 2px 7px;
+  border-radius: 999px;
+}
+
+.muted {
+  color: var(--text-muted);
+}
+
+.small {
+  font-size: 11px;
+  font-weight: 400;
+}
+
+/* ===== Achievements page ===== */
+.ach-hero {
+  background: linear-gradient(135deg, var(--accent), #A855F7);
+  border-radius: var(--radius-lg);
+  padding: 28px 20px;
+  text-align: center;
+  margin-bottom: 18px;
+  color: #fff;
+  box-shadow: var(--shadow-float);
+}
+
+.ach-hero-emoji {
+  font-size: 48px;
+  margin-bottom: 8px;
+}
+
+.ach-hero-value {
+  font-size: 42px;
+  font-weight: 800;
+  letter-spacing: -0.02em;
+}
+
+.ach-hero-label {
+  font-size: 14px;
+  opacity: 0.85;
+  margin-bottom: 10px;
+}
+
+.ach-best {
+  display: inline-block;
+  background: rgba(255, 255, 255, 0.2);
+  padding: 5px 14px;
+  border-radius: 999px;
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.ach-list {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.ach-card {
+  display: flex;
+  gap: 14px;
+  align-items: center;
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  padding: 14px;
+}
+
+.ach-card.unlocked {
+  border-color: var(--accent);
+  background: var(--accent-soft);
+}
+
+.ach-card-icon {
+  width: 56px;
+  height: 56px;
+  border-radius: 14px;
+  border: 2px solid var(--border);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  background: var(--bg);
+}
+
+.big-emoji {
+  font-size: 30px;
+}
+
+.ach-card-body {
+  flex: 1;
+  min-width: 0;
+}
+
+.ach-card-top {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 4px;
+}
+
+.ach-card-top strong {
+  font-size: 15px;
+}
+
+.ach-status {
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--text-muted);
+  background: var(--card-hover);
+  padding: 3px 8px;
+  border-radius: 999px;
+}
+
+.ach-status.done {
+  color: #10B981;
+  background: rgba(16, 185, 129, 0.15);
+}
+
+.ach-card-desc {
+  font-size: 12px;
+  color: var(--text-muted);
+  margin-bottom: 8px;
+}
+
+.ach-progress {
+  height: 5px;
+  background: var(--day-dot-empty);
+  border-radius: 999px;
+  overflow: hidden;
+}
+
+.ach-progress-fill {
+  height: 100%;
+  background: linear-gradient(90deg, var(--accent), #A855F7);
+  border-radius: 999px;
+}
+
+/* ===== Achievement toast ===== */
+.ach-toast-overlay {
+  position: fixed;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 200;
+  opacity: 0;
+  transition: opacity 0.3s ease;
+  pointer-events: none;
+}
+
+.ach-toast-overlay.show {
+  opacity: 1;
+}
+
+.ach-toast {
+  background: linear-gradient(135deg, #1A1A24, #16161F);
+  border: 1.5px solid var(--accent);
+  border-radius: var(--radius-lg);
+  padding: 36px 32px;
+  text-align: center;
+  max-width: 320px;
+  width: 85%;
+  color: #fff;
+  box-shadow: 0 20px 60px rgba(124, 58, 237, 0.4);
+  transform: scale(0.8);
+  transition: transform 0.3s cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+.ach-toast-overlay.show .ach-toast {
+  transform: scale(1);
+}
+
+.ach-confetti {
+  font-size: 22px;
+  margin-bottom: 10px;
+  letter-spacing: 4px;
+  animation: float 2s ease-in-out infinite;
+}
+
+.ach-emoji {
+  font-size: 64px;
+  margin-bottom: 12px;
+}
+
+.ach-title {
+  font-size: 13px;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+  color: var(--accent);
+  font-weight: 700;
+  margin-bottom: 6px;
+}
+
+.ach-name {
+  font-size: 22px;
+  font-weight: 800;
+  margin-bottom: 4px;
+}
+
+.ach-desc {
+  font-size: 14px;
+  color: rgba(255, 255, 255, 0.6);
+}
+
+/* ===== Share button ===== */
+.share-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  width: 100%;
+  padding: 14px;
+  background: var(--card);
+  border: 1.5px solid var(--accent);
+  color: var(--accent);
+  border-radius: var(--radius-md);
+  font-size: 14px;
+  font-weight: 700;
+  margin-top: 8px;
+  transition: transform 0.15s ease, background 0.2s ease;
+}
+
+.share-btn:active {
+  transform: scale(0.98);
+  background: var(--accent-soft);
+}
+
+.share-btn:disabled {
+  opacity: 0.5;
+}
+
+.spin {
+  animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
+
+/* ===== Timezone card ===== */
+.tz-card {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  padding: 14px;
+  color: var(--accent);
+}
+
+.tz-card div {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.tz-card strong {
+  color: var(--text);
+  font-size: 14px;
+}
+
+/* ===== Больше эмодзи в сетке (8 колонок слишком тесно при 32) ===== */
+.emoji-grid {
+  grid-template-columns: repeat(8, 1fr);
+  max-height: 180px;
+  overflow-y: auto;
+}

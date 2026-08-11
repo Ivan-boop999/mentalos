@@ -135,6 +135,7 @@ router.delete('/:id', async (req, res) => {
 /**
  * POST /api/habits/:id/toggle — отметить/снять выполнение на дату (по умолчанию сегодня)
  * body: { date? } в формате YYYY-MM-DD
+ * При выполнении проверяет достижения и возвращает свежеразблокированные.
  */
 router.post('/:id/toggle', async (req, res) => {
   const userId = req.userId;
@@ -154,7 +155,7 @@ router.post('/:id/toggle', async (req, res) => {
         `DELETE FROM habit_logs WHERE habit_id = $1 AND user_id = $2 AND log_date = $3`,
         [habitId, userId, date],
       );
-      return res.json({ done: false, date });
+      return res.json({ done: false, date, newAchievements: [] });
     }
 
     // Ставим отметку
@@ -162,12 +163,76 @@ router.post('/:id/toggle', async (req, res) => {
       `INSERT INTO habit_logs (habit_id, user_id, log_date) VALUES ($1, $2, $3)`,
       [habitId, userId, date],
     );
-    res.json({ done: true, date });
+
+    // Проверяем достижения по новому streak
+    const { rows: habitRows } = await pool.query(
+      `SELECT frequency FROM habits WHERE id = $1`,
+      [habitId],
+    );
+    const freq = habitRows[0]
+      ? typeof habitRows[0].frequency === 'string'
+        ? JSON.parse(habitRows[0].frequency)
+        : habitRows[0].frequency
+      : null;
+
+    const { rows: logRows } = await pool.query(
+      `SELECT log_date::text AS date FROM habit_logs WHERE habit_id = $1 ORDER BY log_date`,
+      [habitId],
+    );
+
+    const streak = calcStreak(
+      logRows.map((r) => r.date),
+      freq,
+    );
+
+    // Проверяем, какие награды только что разблокированы
+    const newAchievements = await checkAndUnlockAchievements(userId, habitId, streak);
+
+    res.json({ done: true, date, streak, newAchievements });
   } catch (err) {
     console.error('POST /habits/:id/toggle:', err);
     res.status(500).json({ error: 'Ошибка сервера' });
   }
 });
+
+// ===== Достижения =====
+
+const ACHIEVEMENT_TIERS = [
+  { code: 'streak_7', threshold: 7, title: 'Неделя 🔥', emoji: '🔥', desc: '7 дней подряд' },
+  { code: 'streak_30', threshold: 30, title: 'Месяц 💎', emoji: '💎', desc: '30 дней подряд' },
+  { code: 'streak_100', threshold: 100, title: 'Стоfighter 🏆', emoji: '🏆', desc: '100 дней подряд' },
+];
+
+/**
+ * Разблокирует достижения, которых ещё не было, возвращает их.
+ */
+async function checkAndUnlockAchievements(userId, habitId, streak) {
+  const unlocked = [];
+  for (const tier of ACHIEVEMENT_TIERS) {
+    if (streak >= tier.threshold) {
+      try {
+        await pool.query(
+          `INSERT INTO achievements (user_id, habit_id, code)
+           VALUES ($1, $2, $3)
+           ON CONFLICT (user_id, habit_id, code) DO NOTHING`,
+          [userId, habitId, tier.code],
+        );
+        // Проверяем, была ли это новая запись
+        const { rows } = await pool.query(
+          `SELECT unlocked_at FROM achievements WHERE user_id = $1 AND habit_id = $2 AND code = $3`,
+          [userId, habitId, tier.code],
+        );
+        // если разблокирована только что (в пределах 5 секунд) — это новое
+        if (rows[0] && Date.now() - new Date(rows[0].unlocked_at).getTime() < 5000) {
+          unlocked.push({ ...tier, habitId });
+        }
+      } catch (e) {
+        // ignore duplicates
+      }
+    }
+  }
+  return unlocked;
+}
 
 // ===== Утилиты =====
 

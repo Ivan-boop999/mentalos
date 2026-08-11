@@ -8,7 +8,6 @@ export function setInitData(value) {
 async function request(path, options = {}) {
   const headers = {
     'Content-Type': 'application/json',
-    ...(options.body ? {} : {}),
     ...options.headers,
   };
   if (_initData && _initData !== 'dev') {
@@ -28,7 +27,6 @@ async function request(path, options = {}) {
     throw new Error(msg);
   }
 
-  // Для 204 и подобных без тела
   const text = await res.text();
   return text ? JSON.parse(text) : null;
 }
@@ -46,5 +44,8 @@ export const api = {
 
   // Настройки
   getSettings: () => request('/api/settings'),
-  updateTheme: (theme) => request('/api/settings', { method: 'PUT', body: JSON.stringify({ theme }) }),
+  updateSettings: (data) => request('/api/settings', { method: 'PUT', body: JSON.stringify(data) }),
+
+  // Достижения
+  getAchievements: () => request('/api/achievements'),
 };

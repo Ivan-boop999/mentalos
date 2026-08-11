@@ -1,27 +1,31 @@
 import { useEffect, useState } from 'react';
 import { useTelegram } from './hooks/useTelegram';
+import { useTimezone } from './hooks/useTimezone';
 import { ThemeProvider } from './context/ThemeContext';
 import { api, setInitData } from './api/client';
 import BottomNav from './components/BottomNav.jsx';
 import HomePage from './pages/Home.jsx';
 import StatsPage from './pages/Stats.jsx';
 import SettingsPage from './pages/Settings.jsx';
+import AchievementsPage from './pages/Achievements.jsx';
 import AddHabitModal from './components/AddHabitModal.jsx';
+import AchievementToast from './components/AchievementToast.jsx';
 
 export default function App() {
-  const { initData, inTelegram, tgTheme, hapticFeedback } = useTelegram();
-  const [page, setPage] = useState('home'); // home | stats | settings
+  const { initData, inTelegram, tgTheme, hapticFeedback, tg } = useTelegram();
+  const timezone = useTimezone(initData);
+  const [page, setPage] = useState('home'); // home | stats | achievements | settings
   const [habits, setHabits] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
-  const [addOpen, setAddOpen] = useState(false);
+  const [modalOpen, setModalOpen] = useState(false);
+  const [editingHabit, setEditingHabit] = useState(null);
+  const [achievement, setAchievement] = useState(null); // для тоста
 
-  // Авторизуем API-клиент
   useEffect(() => {
     setInitData(initData);
   }, [initData]);
 
-  // Загружаем привычки
   const loadHabits = async () => {
     try {
       setError('');
@@ -38,18 +42,16 @@ export default function App() {
     if (initData) loadHabits();
   }, [initData]);
 
-  // Сохранение темы на сервере
   const persistTheme = async (theme) => {
     try {
-      await api.updateTheme(theme);
+      await api.updateSettings({ theme });
     } catch {
-      /* вне сети — не критично */
+      /* noop */
     }
   };
 
   const handleToggle = async (habitId, date) => {
     hapticFeedback('light');
-    // Оптимистичное обновление UI
     setHabits((prev) =>
       prev.map((h) => {
         if (h.id !== habitId) return h;
@@ -61,27 +63,52 @@ export default function App() {
       }),
     );
     try {
-      await api.toggleHabit(habitId, date);
-      // Пересчитываем streak локально для моментального отклика
-      loadHabits();
+      const res = await api.toggleHabit(habitId, date);
+      // Если сервер вернул новое достижение — показываем тост
+      if (res.newAchievements && res.newAchievements.length > 0) {
+        setAchievement(res.newAchievements[0]);
+        hapticFeedback('heavy');
+      }
+      // Пересчитываем streak
+      if (typeof res.streak === 'number') {
+        setHabits((prev) => prev.map((h) => (h.id === habitId ? { ...h, streak: res.streak } : h)));
+      }
     } catch (e) {
       setError(e.message);
       loadHabits();
     }
   };
 
-  const handleCreate = async (data) => {
+  const openCreate = () => {
+    setEditingHabit(null);
+    setModalOpen(true);
+  };
+
+  const openEdit = (habit) => {
+    setEditingHabit(habit);
+    setModalOpen(true);
+  };
+
+  const handleSubmitHabit = async (data) => {
     try {
-      const created = await api.createHabit(data);
-      setHabits((prev) => [...prev, { ...created, logs: [], streak: 0 }]);
-      setAddOpen(false);
-      hapticFeedback('medium');
+      if (editingHabit) {
+        const updated = await api.updateHabit(editingHabit.id, data);
+        setHabits((prev) => prev.map((h) => (h.id === editingHabit.id ? { ...h, ...updated, logs: h.logs, streak: h.streak } : h)));
+        hapticFeedback('medium');
+      } else {
+        const created = await api.createHabit(data);
+        setHabits((prev) => [...prev, { ...created, logs: [], streak: 0 }]);
+        hapticFeedback('medium');
+      }
+      setModalOpen(false);
+      setEditingHabit(null);
     } catch (e) {
       setError(e.message);
     }
   };
 
   const handleDelete = async (id) => {
+    if (!confirm('Удалить привычку? История сохранится в отчётах.')) return;
     try {
       await api.deleteHabit(id);
       setHabits((prev) => prev.filter((h) => h.id !== id));
@@ -91,6 +118,8 @@ export default function App() {
     }
   };
 
+  const userName = inTelegram ? tg?.initDataUnsafe?.user?.first_name : '';
+
   return (
     <ThemeProvider telegramTheme={tgTheme} onPersist={persistTheme}>
       <div className="app">
@@ -98,6 +127,7 @@ export default function App() {
           <h1 className="app-title">
             {page === 'home' && '🧠 MentalOS'}
             {page === 'stats' && '📊 Статистика'}
+            {page === 'achievements' && '🏆 Достижения'}
             {page === 'settings' && '⚙️ Настройки'}
           </h1>
         </header>
@@ -111,22 +141,36 @@ export default function App() {
               loading={loading}
               onToggle={handleToggle}
               onDelete={handleDelete}
-              onAdd={() => setAddOpen(true)}
+              onEdit={openEdit}
+              onAdd={openCreate}
             />
           )}
-          {page === 'stats' && <StatsPage />}
-          {page === 'settings' && <SettingsPage />}
+          {page === 'stats' && <StatsPage habits={habits} userName={userName} tg={tg} />}
+          {page === 'achievements' && <AchievementsPage />}
+          {page === 'settings' && <SettingsPage timezone={timezone} />}
         </main>
 
         {page === 'home' && (
-          <button className="fab" onClick={() => setAddOpen(true)} aria-label="Добавить привычку">
+          <button className="fab" onClick={openCreate} aria-label="Добавить привычку">
             +
           </button>
         )}
 
         <BottomNav current={page} onChange={setPage} />
 
-        {addOpen && <AddHabitModal onClose={() => setAddOpen(false)} onSubmit={handleCreate} />}
+        {modalOpen && (
+          <AddHabitModal
+            onClose={() => {
+              setModalOpen(false);
+              setEditingHabit(null);
+            }}
+            onSubmit={handleSubmitHabit}
+            habit={editingHabit}
+            timezone={timezone}
+          />
+        )}
+
+        <AchievementToast achievement={achievement} onDone={() => setAchievement(null)} />
 
         {!inTelegram && (
           <div className="dev-banner">
