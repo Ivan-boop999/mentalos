@@ -19,8 +19,9 @@ async function buildProgressText(userId) {
   const total = habits.length;
   const pct = total ? Math.round((done / total) * 100) : 0;
 
-  const bar = '░'.repeat(Math.round(pct / 10)) + '▓'.repeat(10 - Math.round(pct / 10));
-  let text = `*Прогресс дня*\n\n${bar.split('').reverse().join('')}  ${pct}%\n\n✅ Выполнено: *${done}/${total}*\n\n`;
+  const filled = Math.round(pct / 10);
+  const bar = '▓'.repeat(filled) + '░'.repeat(10 - filled);
+  let text = `*Прогресс дня*\n\n${bar}  ${pct}%\n\n✅ Выполнено: *${done}/${total}*\n\n`;
   for (const h of habits) {
     text += `${doneSet.has(h.id) ? '✅' : '⬜️'} ${h.emoji} ${h.title}\n`;
   }
@@ -73,12 +74,12 @@ export function initBot() {
 
   // Reply-keyboard: кнопка быстрого доступа к MentalOS прямо в поле ввода
   if (webappUrl) {
-    bot.setMyCommands([
-      { command: 'start', description: 'Запустить MentalOS 🚀' },
-      { command: 'progress', description: 'Прогресс дня 📊' },
-      { command: 'recap', description: 'Отчёт за неделю 📈' },
-      { command: 'invite', description: 'Пригласить друга 🎁' },
-    ], { scope: { type: 'bot_description' } });
+    try {
+      bot.setMyCommands(
+        [{ command: 'progress', description: 'Прогресс дня 📊' }],
+        { scope: { type: 'chat', chat_id: 0 } },
+      );
+    } catch {}
   }
 
   // ===== INLINE MODE: @mentalos_bot прогресс — в любом чате =====

@@ -69,14 +69,16 @@ router.post('/invite', async (req, res) => {
   }
 });
 
-/** DELETE /api/buddies/:id — удалить бадди */
+/** DELETE /api/buddies/:id — удалить бадди (проверяем что участник) */
 router.delete('/:id', async (req, res) => {
   const buddyRowId = Number(req.params.id);
   try {
-    const { rows } = await pool.query(`SELECT user_id, buddy_id FROM buddies WHERE id = $1`, [buddyRowId]);
+    const { rows } = await pool.query(
+      `SELECT user_id, buddy_id FROM buddies WHERE id = $1 AND (user_id = $2 OR buddy_id = $2)`,
+      [buddyRowId, req.userId],
+    );
     if (!rows.length) return res.status(404).json({ error: 'Не найдено' });
     const { user_id, buddy_id } = rows[0];
-    // Удаляем обе стороны
     await pool.query(`DELETE FROM buddies WHERE (user_id = $1 AND buddy_id = $2) OR (user_id = $2 AND buddy_id = $1)`, [user_id, buddy_id]);
     res.json({ ok: true });
   } catch (err) {

@@ -17,8 +17,8 @@ export default function LeaderboardPage({ settings, onChange }) {
 
   if (loading || !data) return <div className="page"><div className="empty-state">Загрузка…</div></div>;
 
-  const top3 = data.users.slice(0, 3);
-  const rest = data.users.slice(3);
+  const top3 = (data.users||[]).slice(0, 3);
+  const rest = (data.users||[]).slice(3);
   const me = data.users.find((u) => u.relation === 'me');
 
   return (

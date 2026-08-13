@@ -55,7 +55,7 @@ router.get('/', async (req, res) => {
       seen.add(u.id);
       all.push({ ...u, relation: rel });
     };
-    push(me.rows?.[0], 'me');
+    push(me[0], 'me');
     referrer.forEach((u) => push(u, 'referrer'));
     invited.forEach((u) => push(u, 'invited'));
     top.forEach((u) => push(u, 'public'));
@@ -66,7 +66,7 @@ router.get('/', async (req, res) => {
     // Присваиваем ранги
     const ranked = all.map((u, i) => ({ ...u, rank: i + 1 }));
 
-    res.json({ users: ranked, myXp: me.rows?.[0]?.xp || 0 });
+    res.json({ users: ranked, myXp: me[0]?.xp || 0 });
   } catch (err) {
     console.error('GET leaderboard:', err);
     res.status(500).json({ error: 'Ошибка сервера' });

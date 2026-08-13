@@ -38,7 +38,7 @@ export default function StatsPage({ habits = [], userName = '', tg }) {
   if (loading) return <div className="page"><div className="empty-state">Загрузка статистики…</div></div>;
   if (!stats) return <div className="page"><div className="empty-state">Не удалось загрузить</div></div>;
 
-  const chartData = stats.perDay.map((d) => ({
+  const chartData = (stats.perDay||[]).map((d) => ({
     name: d.weekday,
     value: d.total ? Math.round((d.done / d.total) * 100) : 0,
     raw: `${d.done}/${d.total}`,
@@ -123,7 +123,7 @@ export default function StatsPage({ habits = [], userName = '', tg }) {
 
       <div className="per-habit-list">
         <h3 className="card-title">По привычкам</h3>
-        {stats.perHabit.map((h) => (
+        {(stats.perHabit||[]).map((h) => (
           <div key={h.id} className="per-habit">
             <span className="per-habit-emoji">{h.emoji}</span>
             <div className="per-habit-body">

@@ -185,7 +185,7 @@ export default function App() {
     } else {
       showBackButton(() => navigate('home'));
     }
-    return () => {};
+    return () => { hideBackButton(); };
   }, [page, inTelegram]);
 
   // CloudStorage: кэшируем привычки для мгновенной загрузки (офлайн-буфер)

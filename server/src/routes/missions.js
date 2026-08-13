@@ -70,7 +70,7 @@ export async function updateMissionsOnAction(userId, action) {
         await pool.query(`UPDATE missions SET progress = $1, completed = $2 WHERE id = $3`, [newProgress, completed, m.id]);
         if (completed) {
           await pool.query(`UPDATE users SET bonus_balance = bonus_balance + $1 WHERE id = $2`, [m.reward, userId]);
-          await pool.query(`INSERT INTO bonus_transactions (user_id, amount, reason) VALUES ($1, $2, 'mission')`, [m.reward, userId]);
+          await pool.query(`INSERT INTO bonus_transactions (user_id, amount, reason) VALUES ($1, $2, 'mission')`, [userId, m.reward]);
         }
       }
     }

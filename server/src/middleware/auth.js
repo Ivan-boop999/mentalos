@@ -86,7 +86,7 @@ async function ensureUser(tgUser, startParam) {
   return id;
 }
 
-export function authMiddleware(req, res, next) {
+export const authMiddleware = async (req, res, next) => {
   const botToken = process.env.BOT_TOKEN;
   if (!botToken) return res.status(500).json({ error: 'BOT_TOKEN не задан' });
 
@@ -101,16 +101,19 @@ export function authMiddleware(req, res, next) {
   const tgUser = validateInitData(initData, botToken);
   if (!tgUser?.id) return res.status(401).json({ error: 'Неверная подпись initData' });
 
-  // start_param из initData (referral code)
   let startParam = null;
   try {
     const params = new URLSearchParams(initData);
     startParam = params.get('start_param') || null;
   } catch {}
 
-  ensureUser(tgUser, startParam).catch((err) => console.error('ensureUser:', err.message));
+  try {
+    await ensureUser(tgUser, startParam);
+  } catch (err) {
+    console.error('ensureUser:', err.message);
+  }
 
   req.userId = tgUser.id;
   req.telegramUser = tgUser;
   next();
-}
+};

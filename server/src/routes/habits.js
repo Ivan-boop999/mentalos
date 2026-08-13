@@ -1,6 +1,7 @@
 import { Router } from 'express';
 import pool from '../db/pool.js';
 import { rewardCompanion } from './companion.js';
+import { updateMissionsOnAction } from './missions.js';
 
 const router = Router();
 
@@ -253,20 +254,29 @@ router.post('/buy-streak-insurance', async (req, res) => {
 router.post('/:id/log', async (req, res) => {
   const userId = req.userId;
   const habitId = Number(req.params.id);
-  const date = req.body?.date || new Date().toISOString().slice(0, 10);
+  const todayIso = new Date().toISOString().slice(0, 10);
+  const date = req.body?.date || todayIso;
   const status = req.body?.status || 'done';
-  const value = Number(req.body?.value) || null;
+  const value = req.body?.value !== undefined ? Math.max(0, Number(req.body.value) || 0) : null;
   const note = req.body?.note;
 
   try {
-    // Корректировка: для measurable берём статус 'done' только если value >= goal_target,
-    // иначе сохраняем статус 'partial' (не портит streak, но и не засчитывает его)
+    // ===== P0-3 FIX: IDOR — проверяем что привычка принадлежит пользователю =====
+    const { rows: hRows } = await pool.query(
+      `SELECT frequency, best_streak, goal_type, goal_target, comeback_shield, time_of_day
+       FROM habits WHERE id = $1 AND user_id = $2 AND archived = FALSE`,
+      [habitId, userId],
+    );
+    if (!hRows.length) return res.status(404).json({ error: 'Привычка не найдена' });
+
+    // ===== P0-2 FIX: получаем streak_insurance из users =====
+    const { rows: uRows } = await pool.query(`SELECT streak_insurance FROM users WHERE id = $1`, [userId]);
+    const hasInsurance = uRows[0]?.streak_insurance || false;
+
+    // Корректировка: для measurable берём статус 'done' только если value >= goal_target
     let finalStatus = status;
-    if (status === 'done' && value !== null) {
-      const { rows: h0 } = await pool.query(`SELECT goal_type, goal_target FROM habits WHERE id = $1`, [habitId]);
-      if (h0[0]?.goal_type === 'measurable' && value < (h0[0].goal_target || 1)) {
-        finalStatus = 'partial';
-      }
+    if (status === 'done' && value !== null && hRows[0].goal_type === 'measurable' && value < (hRows[0].goal_target || 1)) {
+      finalStatus = 'partial';
     }
 
     // upsert отметки
@@ -280,7 +290,7 @@ router.post('/:id/log', async (req, res) => {
     // upsert заметки
     if (note !== undefined) {
       if (note === null || note === '') {
-        await pool.query(`DELETE FROM habit_notes WHERE habit_id = $1 AND log_date = $2`, [habitId, date]);
+        await pool.query(`DELETE FROM habit_notes WHERE habit_id = $1 AND user_id = $2 AND log_date = $3`, [habitId, userId, date]);
       } else {
         await pool.query(
           `INSERT INTO habit_notes (habit_id, user_id, log_date, note)
@@ -289,27 +299,33 @@ router.post('/:id/log', async (req, res) => {
           [habitId, userId, date, note],
         );
       }
+      // P0-1 FIX: миссия note
+      updateMissionsOnAction(userId, { type: 'note' });
     }
 
-    // Считаем актуальный streak
-    const { rows: hRows } = await pool.query(`SELECT frequency, best_streak, goal_type, goal_target FROM habits WHERE id = $1`, [habitId]);
+    // Считаем актуальный streak (только логи этого пользователя)
     const freq = hRows[0] ? (typeof hRows[0].frequency === 'string' ? JSON.parse(hRows[0].frequency) : hRows[0].frequency) : null;
     const { rows: logRows } = await pool.query(
-      `SELECT log_date::text AS date, status, value FROM habit_logs WHERE habit_id = $1 ORDER BY log_date`,
-      [habitId],
+      `SELECT log_date::text AS date, status, value FROM habit_logs WHERE habit_id = $1 AND user_id = $2 ORDER BY log_date`,
+      [habitId, userId],
     );
 
-    const streak = calcStreak(logRows, freq);
-    if (streak > (hRows[0]?.best_streak || 0)) {
-      await pool.query(`UPDATE habits SET best_streak = $1 WHERE id = $2`, [streak, habitId]);
+    // P0-2 FIX: передаём comeback_shield ИЛИ streak_insurance
+    const streak = calcStreak(logRows, freq, hRows[0].comeback_shield || hasInsurance);
+    if (streak > (hRows[0].best_streak || 0)) {
+      await pool.query(`UPDATE habits SET best_streak = $1 WHERE id = $2 AND user_id = $3`, [streak, habitId, userId]);
     }
 
-    // XP и бонусы только за done (не partial, не skip)
+    // P0-2 FIX: если страховка сработала (был пропуск, но стрик не порвался) — списываем
+    if (hasInsurance) {
+      await pool.query(`UPDATE users SET streak_insurance = FALSE WHERE id = $1`, [userId]);
+    }
+
+    // XP и бонусы только за done
     let bonusEarned = 0;
     let xpEarned = 0;
     let leveledUp = null;
     if (finalStatus === 'skip' || finalStatus === 'partial') {
-      // Пропуск/частично — компаньон грустит
       await rewardCompanion(userId, false);
     }
     if (finalStatus === 'done') {
@@ -318,22 +334,24 @@ router.post('/:id/log', async (req, res) => {
       const { rows: before } = await pool.query(`SELECT level FROM users WHERE id = $1`, [userId]);
       const levelBefore = before[0]?.level || 1;
       await pool.query(`UPDATE users SET bonus_balance = bonus_balance + 1, xp = xp + 10, total_checkins = total_checkins + 1 WHERE id = $1`, [userId]);
-      await pool.query(`INSERT INTO bonus_transactions (user_id, amount, reason) VALUES ($1, 1, 'habit_checkin')`, [userId]);
-      // Награждаем компаньона (Tamagotchi-эффект)
+      // P0-5 FIX: правильный порядок параметров [userId, amount]
+      await pool.query(`INSERT INTO bonus_transactions (user_id, amount, reason) VALUES ($1, $2, 'habit_checkin')`, [userId, 1]);
       await rewardCompanion(userId, true);
+      // P0-1 FIX: миссии прогрессируют
+      updateMissionsOnAction(userId, { type: 'checkin', timeOfDay: hRows[0].time_of_day });
       const newLevel = await updateLevel(userId);
       if (newLevel > levelBefore) {
         leveledUp = { from: levelBefore, to: newLevel };
-        // Бонус за рост уровня
         const lvlBonus = 50 * newLevel;
         await pool.query(`UPDATE users SET bonus_balance = bonus_balance + $1 WHERE id = $2`, [lvlBonus, userId]);
-        await pool.query(`INSERT INTO bonus_transactions (user_id, amount, reason) VALUES ($1, $2, 'level_up')`, [lvlBonus, userId]);
+        // P0-5 FIX: правильный порядок параметров
+        await pool.query(`INSERT INTO bonus_transactions (user_id, amount, reason) VALUES ($1, $2, 'level_up')`, [userId, lvlBonus]);
       }
     }
 
     const newAchievements = finalStatus === 'done' ? await checkAchievements(userId, habitId, streak) : [];
 
-    // ===== Variable reward (dopamine loop): ~12% шанс на «сюрприз» =====
+    // Variable reward (~12% шанс)
     let surprise = null;
     if (finalStatus === 'done' && Math.random() < 0.12) {
       const surprises = [
@@ -345,18 +363,19 @@ router.post('/:id/log', async (req, res) => {
       surprise = surprises[Math.floor(Math.random() * surprises.length)];
       if (surprise.type === 'bonus') {
         await pool.query(`UPDATE users SET bonus_balance = bonus_balance + $1 WHERE id = $2`, [surprise.amount, userId]);
-        await pool.query(`INSERT INTO bonus_transactions (user_id, amount, reason) VALUES ($1, $2, 'surprise')`, [surprise.amount, userId]);
+        // P0-5 FIX: правильный порядок параметров
+        await pool.query(`INSERT INTO bonus_transactions (user_id, amount, reason) VALUES ($1, $2, 'surprise')`, [userId, surprise.amount]);
       } else if (surprise.type === 'xp') {
         await pool.query(`UPDATE users SET xp = xp + $1 WHERE id = $2`, [surprise.amount, userId]);
         await updateLevel(userId);
       } else if (surprise.type === 'streak_shield') {
-        await pool.query(`UPDATE habits SET comeback_shield = TRUE WHERE id = $1`, [habitId]);
+        await pool.query(`UPDATE habits SET comeback_shield = TRUE WHERE id = $1 AND user_id = $2`, [habitId, userId]);
       }
     }
 
     res.json({
       ok: true, date, status: finalStatus, value, streak,
-      best_streak: Math.max(streak, hRows[0]?.best_streak || 0),
+      best_streak: Math.max(streak, hRows[0].best_streak || 0),
       newAchievements, bonusEarned, xpEarned, leveledUp, surprise,
     });
   } catch (err) {

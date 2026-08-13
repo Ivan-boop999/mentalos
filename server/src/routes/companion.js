@@ -25,6 +25,7 @@ router.get('/', async (req, res) => {
       name: u[0].companion_name,
       type: u[0].companion_type,
       xp, level, stage, equipped,
+      mood: u[0].companion_mood,
       xpToNext: Math.pow(level, 2) * 50,
       xpForThis: Math.pow(level - 1, 2) * 50,
     });

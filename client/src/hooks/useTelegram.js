@@ -19,7 +19,16 @@ export function useTelegram() {
       setInitData(wa.initData || '');
       setInTelegram(true);
       setTgTheme(wa.colorScheme || 'light');
-      wa.onEvent('themeChanged', () => setTgTheme(wa.colorScheme || 'light'));
+
+      const onTheme = () => setTgTheme(wa.colorScheme || 'light');
+      wa.onEvent('themeChanged', onTheme);
+
+      // P1 FIX: cleanup listener при размонтировании
+      return () => {
+        try { wa.offEvent('themeChanged', onTheme); } catch {}
+        try { wa.BackButton?.hide(); } catch {}
+        try { wa.MainButton?.hide(); } catch {}
+      };
     } else {
       setInTelegram(false);
       setInitData('dev');
@@ -30,50 +39,53 @@ export function useTelegram() {
     try { tg?.HapticFeedback?.impactOccurred?.(style); } catch {}
   };
 
-  // ===== Нативные кнопки (MainButton, BackButton) =====
+  // P1 FIX: BackButton с offClick cleanup
+  const showBackButton = (onClick) => {
+    try {
+      const bb = tg?.BackButton;
+      if (!bb) return;
+      bb.onClick(onClick);
+      bb._mentalosHandler = onClick; // сохраняем для cleanup
+      bb.show();
+    } catch {}
+  };
+  const hideBackButton = () => {
+    try {
+      const bb = tg?.BackButton;
+      if (!bb) return;
+      if (bb._mentalosHandler) { bb.offClick(bb._mentalosHandler); bb._mentalosHandler = null; }
+      bb.hide();
+    } catch {}
+  };
+
   const showMainButton = (text, onClick) => {
     try {
       const mb = tg?.MainButton;
       if (!mb) return;
       mb.setText(text);
-      mb.show();
       mb.onClick(onClick);
+      mb._mentalosHandler = onClick;
+      mb.show();
     } catch {}
   };
   const hideMainButton = () => {
-    try { tg?.MainButton?.hide(); } catch {}
-  };
-  const showBackButton = (onClick) => {
     try {
-      const bb = tg?.BackButton;
-      if (!bb) return;
-      bb.show();
-      bb.onClick(onClick);
+      const mb = tg?.MainButton;
+      if (!mb) return;
+      if (mb._mentalosHandler) { mb.offClick(mb._mentalosHandler); mb._mentalosHandler = null; }
+      mb.hide();
     } catch {}
   };
-  const hideBackButton = () => {
-    try { tg?.BackButton?.hide(); } catch {}
-  };
 
-  // ===== CloudStorage (офлайн кэш) =====
   const cloudGet = (key) => new Promise((resolve) => {
-    try {
-      tg?.CloudStorage?.getItem(key, (err, val) => resolve(err ? null : val));
-    } catch { resolve(null); }
+    try { tg?.CloudStorage?.getItem(key, (err, val) => resolve(err ? null : val)); } catch { resolve(null); }
   });
   const cloudSet = (key, value) => new Promise((resolve) => {
-    try {
-      tg?.CloudStorage?.setItem(key, value, (err, ok) => resolve(err ? false : true));
-    } catch { resolve(false); }
+    try { tg?.CloudStorage?.setItem(key, value, (err) => resolve(!err)); } catch { resolve(false); }
   });
 
-  // ===== Disable vertical swipe (чтобы не закрывал мини-апп) =====
-  const disableVerticalSwipes = () => {
-    try { tg?.disableVerticalSwipes?.(); } catch {}
-  };
-  const enableVerticalSwipes = () => {
-    try { tg?.enableVerticalSwipes?.(); } catch {}
-  };
+  const disableVerticalSwipes = () => { try { tg?.disableVerticalSwipes?.(); } catch {} };
+  const enableVerticalSwipes = () => { try { tg?.enableVerticalSwipes?.(); } catch {} };
 
   return {
     tg, initData, inTelegram, tgTheme, hapticFeedback,

@@ -146,14 +146,7 @@ export function startScheduler(bot) {
         );
       }
     } catch (err) {
-      // Таблицы buddy_notified может не быть — создаём на лету
-      if (err.message.includes('buddy_notified')) {
-        try {
-          await pool.query(`CREATE TABLE IF NOT EXISTS buddy_notified (user_id BIGINT, date DATE, PRIMARY KEY (user_id, date))`);
-        } catch {}
-      } else {
-        console.error('Buddy scheduler error:', err.message);
-      }
+      console.error('Buddy scheduler error:', err.message);
     }
   });
 }

@@ -9,7 +9,7 @@ export default function RecapPage() {
 
   if (!data) return <div className="page"><div className="empty-state">Загрузка отчёта…</div></div>;
 
-  const chartData = data.perDay.map((d) => ({
+  const chartData = (data.perDay||[]).map((d) => ({
     name: new Date(d.date).toLocaleDateString('ru-RU', { weekday: 'short' }),
     value: d.done,
   }));
@@ -28,7 +28,7 @@ export default function RecapPage() {
     <div className="page recap">
       <div className="recap-hero glass">
         <h2>📊 Отчёт за неделю</h2>
-        <p>{new Date(data.weekRange.from).toLocaleDateString('ru-RU')} — {new Date(data.weekRange.to).toLocaleDateString('ru-RU')}</p>
+        <p>{new Date((data.weekRange||{}).from).toLocaleDateString('ru-RU')} — {new Date((data.weekRange||{}).to).toLocaleDateString('ru-RU')}</p>
         <div className="recap-trend" style={{ color: trendColor }}>
           <TrendIcon size={20} />
           {data.trend > 0 ? `+${data.trend} к прошлой неделе` : data.trend < 0 ? `${data.trend} к прошлой неделе` : 'Как на прошлой неделе'}

@@ -37,7 +37,7 @@ export default function HomePage({ habits, loading, onLog, onUnlog, onDelete, on
   const allDone = habits.length > 0 && doneCount === habits.length;
   const quote = useMemo(() => getQuoteOfTheDay(), []);
 
-  const filtered = useMemo(() => {
+  const sorted = useMemo(() => {
     let arr = habits;
     if (query.trim()) arr = arr.filter((h) => h.title.toLowerCase().includes(query.toLowerCase()));
     arr = [...arr];
@@ -127,7 +127,7 @@ export default function HomePage({ habits, loading, onLog, onUnlog, onDelete, on
           <p>Добавь первую привычку или начни челлендж во вкладке «Челленджи» 🎯</p>
           <button className="primary-btn" onClick={onAdd}><Plus size={18} /> Добавить привычку</button>
         </div>
-      ) : filtered.length === 0 ? (
+      ) : sorted.length === 0 ? (
         <div className="empty-state"><p>Ничего не найдено по запросу «{query}»</p></div>
       ) : hasGroups ? (
         <div className="habits-grouped">

@@ -9,8 +9,12 @@ export default function ArchivePage() {
   useEffect(() => { load(); }, []);
 
   const restore = async (id) => {
-    await api.restoreHabit(id);
-    setItems((p) => p.filter((x) => x.id !== id));
+    try {
+      await api.restoreHabit(id);
+      setItems((p) => p.filter((x) => x.id !== id));
+    } catch (e) {
+      alert('❌ ' + e.message);
+    }
   };
 
   return (

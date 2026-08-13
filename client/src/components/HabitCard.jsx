@@ -59,7 +59,7 @@ export default function HabitCard({ habit, onLog, onUnlog, onDelete, onEdit }) {
     if (status === 'skip') return onUnlog(habit.id, todayIso);
     onLog(habit.id, { status: 'skip', date: todayIso });
   };
-  const setNone = () => onUnlog(habit.id, todayIso);
+  const setNone = () => { if (status !== null) onUnlog(habit.id, todayIso); };
 
   const addSub = async (e) => {
     e.preventDefault();
@@ -191,7 +191,13 @@ export default function HabitCard({ habit, onLog, onUnlog, onDelete, onEdit }) {
           placeholder="Заметка на сегодня…"
           value={noteText}
           onChange={(e) => setNoteText(e.target.value)}
-          onBlur={() => { onLog(habit.id, { status: status || 'skip', date: todayIso, note: noteText }); setNoteOpen(false); }}
+            onBlur={() => {
+              // P1 FIX: не создаём skip-лог при сохранении заметки, если отметки нет
+              if (status === 'done' || status === 'skip') {
+                onLog(habit.id, { status, date: todayIso, note: noteText });
+              }
+              setNoteOpen(false);
+            }}
           rows={2}
           autoFocus
         />

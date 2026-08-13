@@ -145,6 +145,13 @@ CREATE TABLE IF NOT EXISTS buddies (
     UNIQUE (user_id, buddy_id)
 );
 
+-- Таблица для дедупликации buddy-уведомлений (должна быть в миграции, не на лету)
+CREATE TABLE IF NOT EXISTS buddy_notified (
+    user_id         BIGINT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    date            DATE NOT NULL,
+    PRIMARY KEY (user_id, date)
+);
+
 -- Кастомизация компаньона (шапки, очки, одежда — покупаются за бонусы)
 CREATE TABLE IF NOT EXISTS companion_items (
     id              SERIAL PRIMARY KEY,

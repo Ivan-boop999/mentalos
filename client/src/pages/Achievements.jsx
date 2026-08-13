@@ -17,16 +17,20 @@ export default function AchievementsPage() {
   const shareToStory = () => {
     try {
       const wa = window.Telegram?.WebApp;
-      if (wa?.shareToStory && data?.totalUnlocked > 0) {
-        // Share to Stories — нужен mediaUrl; для простоты открываем share-диалог
+      if (data?.totalUnlocked > 0) {
         const text = `🧠 Я открыл ${data.totalUnlocked} достижений в MentalOS! Мой лучший стрик: ${data.bestStreak} 🔥`;
-        if (wa.openTelegramLink) {
-          wa.openTelegramLink(`https://t.me/share/url?url=${encodeURIComponent('https://t.me/' + (process.env.BOT_USERNAME || 'mentalos_bot'))}&text=${encodeURIComponent(text)}`);
+        const botUser = import.meta.env.VITE_BOT_USERNAME || 'mentalos_bot';
+        if (wa?.openTelegramLink) {
+          wa.openTelegramLink(`https://t.me/share/url?url=${encodeURIComponent('https://t.me/' + botUser)}&text=${encodeURIComponent(text)}`);
+        } else {
+          window.open(`https://t.me/share/url?url=${encodeURIComponent('https://t.me/' + botUser)}&text=${encodeURIComponent(text)}`, '_blank');
         }
       } else {
-        alert('Поделиться в Истории доступно в новой версии Telegram');
+        alert('Пока нет достижений для шеринга');
       }
-    } catch {}
+    } catch (e) {
+      console.error('share error:', e);
+    }
   };
 
   if (loading) return <div className="page"><div className="empty-state">Загрузка…</div></div>;
@@ -37,6 +41,8 @@ export default function AchievementsPage() {
     { name: 'Серии', codes: ['streak_7', 'streak_30'], color: '#F59E0B' },
     { name: 'Легенды', codes: ['streak_100', 'streak_365'], color: '#7C3AED' },
   ];
+
+  const tiers = data?.tiers || [];
 
   return (
     <div className="page achievements">
@@ -54,8 +60,8 @@ export default function AchievementsPage() {
       )}
 
       {/* Case Showcase — по категориям как витрина */}
-      {showcaseCategories.map((cat) => {
-        const catTiers = data.tiers.filter((t) => cat.codes.includes(t.code));
+        {showcaseCategories.map((cat) => {
+        const catTiers = tiers.filter((t) => cat.codes.includes(t.code));
         if (!catTiers.length) return null;
         return (
           <div key={cat.name} className="showcase-section">
