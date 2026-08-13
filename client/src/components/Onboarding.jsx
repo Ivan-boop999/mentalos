@@ -26,6 +26,7 @@ export default function Onboarding({ onDone }) {
   return (
     <div className="onboarding-overlay">
       <div className="onboarding-card" style={{ '--slide-color': s.color }}>
+        {/* --slide-color используется в CSS для подцветки emoji */}
         <div className="onboarding-skip" onClick={next}>{last ? '' : 'Пропустить'}</div>
         <div className="onboarding-emoji">{s.emoji}</div>
         <h2>{s.title}</h2>

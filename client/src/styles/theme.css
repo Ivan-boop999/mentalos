@@ -1,22 +1,18 @@
 /* ============================================================
-   MentalOS v2 — Темы (premium design)
-   Подход: глубокие фоны + живые градиенты + glassmorphism.
-   Универсально для зумеров, миллениалов и бизнес-аудитории.
+   MentalOS v6 — Темы (premium, на основе tokens.css)
+   Подход: layered surfaces (Material elevation overlay),
+   десатурированные акценты в dark mode, адаптивные градиенты.
    ============================================================ */
+
+@import './tokens.css';
 
 :root {
   --accent: #7C3AED;
   --accent-default: #7C3AED;
-  --accent-2: #06B6D4;       /* контрастный акцент для градиентов */
-  --accent-3: #EC4899;
+  --accent-2: #06B6D4;
   --gradient-main: linear-gradient(135deg, #7C3AED 0%, #06B6D4 100%);
   --gradient-warm: linear-gradient(135deg, #F59E0B 0%, #EC4899 100%);
   --gradient-cool: linear-gradient(135deg, #6366F1 0%, #06B6D4 100%);
-
-  --radius-sm: 12px;
-  --radius-md: 18px;
-  --radius-lg: 24px;
-  --radius-xl: 32px;
 
   --nav-h: 68px;
   --header-h: 64px;
@@ -26,143 +22,154 @@
 /* ===== СВЕТЛАЯ ТЕМА ===== */
 :root,
 [data-theme='light'] {
-  --bg: #F5F5FA;
-  --bg-grad: radial-gradient(1200px 600px at 100% -10%, rgba(124,58,237,.10), transparent 60%),
-             radial-gradient(900px 500px at -10% 110%, rgba(6,182,212,.10), transparent 60%),
-             #F5F5FA;
-  --bg-elevated: #FFFFFF;
-  --card: #FFFFFF;
+  --bg: #F4F4F8;
+  --bg-grad:
+    radial-gradient(1200px 600px at 100% -10%, rgba(124, 58, 237, 0.08), transparent 60%),
+    radial-gradient(900px 500px at -10% 110%, rgba(6, 182, 212, 0.08), transparent 60%),
+    #F4F4F8;
+
+  /* Layered surfaces (Shadcn/Linear подход) */
+  --surface-0: var(--bg);                                     /* фон экрана */
+  --surface-1: #FFFFFF;                                       /* карточка */
+  --surface-2: #FFFFFF;                                       /* elevated (модалка) */
+  --surface-glass: rgba(255, 255, 255, 0.72);                 /* glassmorphism */
+
+  --card: var(--surface-1);
   --card-hover: #FAFAFE;
-  --glass: rgba(255, 255, 255, 0.65);
-  --glass-border: rgba(255, 255, 255, 0.8);
-  --border: #ECECF3;
-  --text: #0E0E1A;
+  --glass: var(--surface-glass);
+  --glass-border: rgba(255, 255, 255, 0.9);
+  --border: #E8E8F0;
+  --border-subtle: #F0F0F5;
+
+  --text: #0A0A14;
+  --text-secondary: #4A4A5A;
   --text-muted: #71718A;
-  --text-dim: #A8A8BE;
+  --text-dim: #A0A0B5;
 
   --check-empty: #ECECF3;
-  --day-dot-empty: #E2E2EC;
-  --danger: #EF4444;
-  --danger-soft: rgba(239, 68, 68, 0.10);
+  --day-dot-empty: #E4E4EC;
+  --danger: #DC2626;
+  --danger-soft: rgba(220, 38, 38, 0.10);
+  --success: #059669;
+  --success-soft: rgba(5, 150, 105, 0.12);
+  --warning: #D97706;
+  --warning-soft: rgba(217, 119, 6, 0.12);
 
-  --chart-grid: #ECECF3;
-  --shadow-card: 0 2px 12px rgba(20, 20, 50, 0.04), 0 8px 32px rgba(20, 20, 50, 0.06);
-  --shadow-float: 0 8px 28px rgba(124, 58, 237, 0.25);
-  --shadow-glow: 0 0 40px rgba(124, 58, 237, 0.15);
+  --accent-soft: rgba(124, 58, 237, 0.12);
+  --accent-on: #FFFFFF; /* текст на акцентном фоне */
+
+  --chart-grid: #E8E8F0;
+
+  --shadow-card: var(--shadow-sm);
+  --shadow-float: 0 8px 28px rgba(124, 58, 237, 0.20);
+  --shadow-glow: 0 0 40px rgba(124, 58, 237, 0.12);
+
+  --toast-bg: linear-gradient(135deg, #1A1A28, #22223A);
+  --toast-text: #FFFFFF;
 }
 
 /* ===== ТЁМНАЯ ТЕМА ===== */
 [data-theme='dark'] {
   --bg: #08080F;
-  --bg-grad: radial-gradient(1000px 600px at 100% -10%, rgba(124,58,237,.22), transparent 55%),
-             radial-gradient(900px 600px at -10% 110%, rgba(6,182,212,.18), transparent 55%),
-             radial-gradient(700px 500px at 50% 50%, rgba(236,72,153,.06), transparent 60%),
-             #08080F;
-  --bg-elevated: #11111C;
-  --card: #14141F;
-  --card-hover: #1A1A28;
-  --glass: rgba(20, 20, 32, 0.55);
-  --glass-border: rgba(255, 255, 255, 0.08);
-  --border: #1F1F2E;
-  --text: #F5F5FA;
-  --text-muted: #8585A0;
-  --text-dim: #555570;
+  --bg-grad:
+    radial-gradient(1000px 600px at 100% -10%, rgba(124, 58, 237, 0.20), transparent 55%),
+    radial-gradient(900px 600px at -10% 110%, rgba(6, 182, 212, 0.16), transparent 55%),
+    radial-gradient(700px 500px at 50% 50%, rgba(236, 72, 153, 0.05), transparent 60%),
+    #08080F;
 
-  --check-empty: #20202E;
-  --day-dot-empty: #20202E;
+  /* Layered surfaces: Material elevation overlay (white overlay поверх базы) */
+  --surface-0: #08080F;
+  --surface-1: color-mix(in srgb, #08080F 88%, white);   /* card, +12% */
+  --surface-2: color-mix(in srgb, #08080F 82%, white);   /* elevated */
+  --surface-glass: rgba(20, 20, 32, 0.60);
+
+  --card: var(--surface-1);
+  --card-hover: color-mix(in srgb, #08080F 78%, white);
+  --glass: var(--surface-glass);
+  --glass-border: rgba(255, 255, 255, 0.08);
+  --border: rgba(255, 255, 255, 0.08);
+  --border-subtle: rgba(255, 255, 255, 0.05);
+
+  --text: #F4F4F8;
+  --text-secondary: #C0C0D0;
+  --text-muted: #8080A0;
+  --text-dim: #50506A;
+
+  --check-empty: #1E1E2C;
+  --day-dot-empty: #1E1E2C;
   --danger: #F87171;
   --danger-soft: rgba(248, 113, 113, 0.14);
+  --success: #34D399;
+  --success-soft: rgba(52, 211, 153, 0.14);
+  --warning: #FBBF24;
+  --warning-soft: rgba(251, 191, 36, 0.14);
 
-  --accent-soft: rgba(124, 58, 237, 0.20);
-  --chart-grid: #1F1F2E;
+  --accent-soft: rgba(124, 58, 237, 0.22);
+  --accent-on: #FFFFFF;
+
+  --chart-grid: rgba(255, 255, 255, 0.06);
+
   --shadow-card: 0 4px 20px rgba(0, 0, 0, 0.4);
-  --shadow-float: 0 14px 40px rgba(124, 58, 237, 0.4);
-  --shadow-glow: 0 0 60px rgba(124, 58, 237, 0.25);
+  --shadow-float: 0 14px 40px rgba(124, 58, 237, 0.35);
+  --shadow-glow: 0 0 60px rgba(124, 58, 237, 0.22);
+
+  --toast-bg: linear-gradient(135deg, #14141F, #1E1E30);
+  --toast-text: #FFFFFF;
 }
 
 /* ============================================================
    Покупаемые цветовые ТЕМЫ (data-theme-skin на <html>)
-   Перекрывают только --accent и --gradient-main.
    ============================================================ */
 
-/* Aurora — северное сияние (зелёный/фиолетовый) */
 [data-theme-skin='aurora'] {
-  --accent: #00D9A3;
-  --accent-default: #00D9A3;
-  --accent-2: #7C3AED;
+  --accent: #00D9A3; --accent-default: #00D9A3; --accent-2: #7C3AED;
   --gradient-main: linear-gradient(135deg, #00D9A3 0%, #7C3AED 100%);
-  --accent-soft: rgba(0, 217, 163, 0.18);
+  --accent-soft: rgba(0, 217, 163, 0.16);
 }
-
-/* Sunset — закат (оранжевый/розовый) */
 [data-theme-skin='sunset'] {
-  --accent: #F97316;
-  --accent-default: #F97316;
-  --accent-2: #EC4899;
+  --accent: #F97316; --accent-default: #F97316; --accent-2: #EC4899;
   --gradient-main: linear-gradient(135deg, #F97316 0%, #EC4899 100%);
-  --accent-soft: rgba(249, 115, 22, 0.18);
+  --accent-soft: rgba(249, 115, 22, 0.16);
 }
-
-/* Forest — лес (зелёный) */
 [data-theme-skin='forest'] {
-  --accent: #10B981;
-  --accent-default: #10B981;
-  --accent-2: #84CC16;
+  --accent: #10B981; --accent-default: #10B981; --accent-2: #84CC16;
   --gradient-main: linear-gradient(135deg, #10B981 0%, #65A30D 100%);
-  --accent-soft: rgba(16, 185, 129, 0.18);
+  --accent-soft: rgba(16, 185, 129, 0.16);
 }
-
-/* Ocean — океан (синий/бирюзовый) */
 [data-theme-skin='ocean'] {
-  --accent: #0EA5E9;
-  --accent-default: #0EA5E9;
-  --accent-2: #06B6D4;
+  --accent: #0EA5E9; --accent-default: #0EA5E9; --accent-2: #06B6D4;
   --gradient-main: linear-gradient(135deg, #0EA5E9 0%, #06B6D4 100%);
-  --accent-soft: rgba(14, 165, 233, 0.18);
+  --accent-soft: rgba(14, 165, 233, 0.16);
 }
-
-/* Mono — минимализм (графит) */
 [data-theme-skin='mono'] {
-  --accent: #64748B;
-  --accent-default: #64748B;
-  --accent-2: #94A3B8;
+  --accent: #64748B; --accent-default: #64748B; --accent-2: #94A3B8;
   --gradient-main: linear-gradient(135deg, #475569 0%, #94A3B8 100%);
-  --accent-soft: rgba(100, 116, 139, 0.18);
+  --accent-soft: rgba(100, 116, 139, 0.16);
 }
-
-/* Neon — киберпанк (мagenta/cyan) */
 [data-theme-skin='neon'] {
-  --accent: #D946EF;
-  --accent-default: #D946EF;
-  --accent-2: #06FFE0;
+  --accent: #D946EF; --accent-default: #D946EF; --accent-2: #06FFE0;
   --gradient-main: linear-gradient(135deg, #D946EF 0%, #06FFE0 100%);
-  --accent-soft: rgba(217, 70, 239, 0.22);
+  --accent-soft: rgba(217, 70, 239, 0.20);
 }
 
 /* ============================================================
-   ADAPTIVE INTERFACE — тёплые тона вечером/ночью (как iOS Night Shift)
-   data-timeOfDay="evening" | "night" на <html>
+   ADAPTIVE INTERFACE — тёплые тона вечером/ночью
    ============================================================ */
 
-/* Вечер (17:00-20:00): слегка тёплый фильтр */
 [data-time-of-day='evening'] {
   --bg-grad:
-    radial-gradient(1200px 600px at 100% -10%, rgba(245,158,11,.12), transparent 60%),
-    radial-gradient(900px 500px at -10% 110%, rgba(236,72,153,.10), transparent 60%),
+    radial-gradient(1200px 600px at 100% -10%, rgba(245, 158, 11, 0.10), transparent 60%),
+    radial-gradient(900px 500px at -10% 110%, rgba(236, 72, 153, 0.08), transparent 60%),
     var(--bg);
 }
-
-/* Ночь (20:00-06:00): глубокий тёплый, фиолетовые акценты, меньше яркости */
 [data-time-of-day='night'] {
   --bg-grad:
-    radial-gradient(1200px 600px at 100% -10%, rgba(124,58,237,.18), transparent 55%),
-    radial-gradient(900px 500px at -10% 110%, rgba(236,72,153,.12), transparent 55%),
-    radial-gradient(700px 500px at 50% 50%, rgba(59,130,246,.05), transparent 60%),
+    radial-gradient(1200px 600px at 100% -10%, rgba(124, 58, 237, 0.16), transparent 55%),
+    radial-gradient(900px 500px at -10% 110%, rgba(236, 72, 153, 0.10), transparent 55%),
     var(--bg);
 }
 [data-theme='dark'][data-time-of-day='night'] {
-  --bg: #060610;
-  --bg-elevated: #0E0E18;
-  --card: #12121E;
-  --border: #1A1A28;
+  --surface-0: #060610;
+  --surface-1: color-mix(in srgb, #060610 88%, white);
+  --card: var(--surface-1);
 }

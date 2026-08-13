@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState, useCallback } from 'react';
 import { useTelegram } from './hooks/useTelegram';
 import { useTimezone } from './hooks/useTimezone';
 import { useSound } from './hooks/useSound';
@@ -46,6 +46,22 @@ export default function App() {
   const [levelUp, setLevelUp] = useState(null);
   const [surprise, setSurprise] = useState(null);
   const [celebrate, setCelebrate] = useState(0);
+  // Очередь тостов: показываем по одному, чтобы не наслаивались
+  const toastQueue = useRef([]);
+  const [activeToast, setActiveToast] = useState(null); // {type, data}
+
+  const enqueueToast = useCallback((type, data) => {
+    toastQueue.current.push({ type, data });
+    if (!activeToast) {
+      const next = toastQueue.current.shift();
+      setActiveToast(next);
+    }
+  }, [activeToast]);
+
+  const dequeueToast = useCallback(() => {
+    const next = toastQueue.current.shift();
+    setActiveToast(next || null);
+  }, []);
   const [showBrief, setShowBrief] = useState(false);
   const [buddiesList, setBuddiesList] = useState([]);
 
@@ -109,21 +125,20 @@ export default function App() {
     try {
       const res = await api.logHabit(habitId, payload);
       if (res.newAchievements?.length > 0) {
-        setAchievement(res.newAchievements[0]);
+        enqueueToast('achievement', res.newAchievements[0]);
         hapticFeedback('heavy');
-        playSound('success'); // фанфары достижения
+        playSound('success');
       }
       if (res.leveledUp) {
-        setLevelUp(res.leveledUp);
+        enqueueToast('levelup', res.leveledUp);
         hapticFeedback('heavy');
         playSound('levelup');
         loadSettings();
       }
       if (res.surprise) {
-        setSurprise(res.surprise);
+        enqueueToast('surprise', res.surprise);
         hapticFeedback('heavy');
         playSound('success');
-        // Если сюрприз = щит — перезагружаем привычки чтобы отразить comeback_shield
         if (res.surprise.type === 'streak_shield') loadHabits();
       }
       if (typeof res.streak === 'number') {
@@ -284,9 +299,16 @@ export default function App() {
           />
         )}
 
-        <AchievementToast achievement={achievement} onDone={() => setAchievement(null)} />
-        <LevelUpToast levelUp={levelUp} onDone={() => setLevelUp(null)} />
-        <SurpriseToast surprise={surprise} onDone={() => setSurprise(null)} />
+        {/* Единая очередь тостов — показываем по одному */}
+        {activeToast?.type === 'achievement' && (
+          <AchievementToast achievement={activeToast.data} onDone={dequeueToast} />
+        )}
+        {activeToast?.type === 'levelup' && (
+          <LevelUpToast levelUp={activeToast.data} onDone={dequeueToast} />
+        )}
+        {activeToast?.type === 'surprise' && (
+          <SurpriseToast surprise={activeToast.data} onDone={dequeueToast} />
+        )}
 
         {showBrief && (
           <DailyBrief habits={habits} userName={userName} onClose={() => setShowBrief(false)} />

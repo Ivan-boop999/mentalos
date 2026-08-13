@@ -222,13 +222,16 @@ input, textarea { font-family: inherit; }
 }
 .hv2-status-btn {
   display: flex; flex-direction: column; align-items: center; gap: 3px;
-  padding: 10px 6px;
-  border-radius: 12px;
-  background: var(--bg);
+  padding: var(--space-2) var(--space-1);
+  border-radius: var(--radius-sm);
+  background: var(--surface-0);
   border: 2px solid transparent;
-  font-size: 10px; font-weight: 700;
+  font-size: var(--text-caption);
+  font-weight: var(--fw-semibold);
   color: var(--text-muted);
-  transition: all 0.2s ease;
+  transition: all var(--dur-base) var(--ease-snappy);
+  min-height: 44px;
+  justify-content: center;
 }
 .hv2-status-btn:active { transform: scale(0.96); }
 .hv2-status-btn span { display: block; }
@@ -585,7 +588,7 @@ input, textarea { font-family: inherit; }
 .podium-name { font-size: 12px; font-weight: 700; max-width: 90px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .podium-xp { font-size: 11px; color: var(--text-muted); }
 .podium-base { display: flex; align-items: center; justify-content: center; gap: 4px; width: 100%; max-width: 90px; color: #fff; font-weight: 800; font-size: 18px; border-radius: 10px 10px 0 0; padding: 8px 0; }
-.podium-slot.place-1 .poodium-base { padding: 14px 0; }
+.podium-slot.place-1 .podium-base { padding: 14px 0; }
 .podium-me { position: absolute; top: -8px; background: var(--accent); color: #fff; font-size: 9px; padding: 2px 8px; border-radius: 999px; font-weight: 800; }
 
 .lb-list { display: flex; flex-direction: column; gap: 6px; margin-bottom: 16px; }
@@ -993,7 +996,7 @@ input, textarea { font-family: inherit; }
 .onboarding-overlay { position: fixed; inset: 0; background: var(--bg-grad); background-color: var(--bg); z-index: 300; display: flex; align-items: center; justify-content: center; padding: 24px; }
 .onboarding-card { max-width: 360px; width: 100%; text-align: center; position: relative; animation: fade 0.4s ease; }
 .onboarding-skip { position: absolute; top: -40px; right: 0; color: var(--text-muted); font-size: 13px; font-weight: 600; }
-.onboarding-emoji { font-size: 80px; margin-bottom: 24px; animation: float 3s ease-in-out infinite; }
+.onboarding-emoji { font-size: 80px; margin-bottom: 24px; animation: float 3s ease-in-out infinite; filter: drop-shadow(0 8px 24px var(--slide-color, var(--accent-soft))); }
 .onboarding-card h2 { font-size: 26px; font-weight: 800; margin: 0 0 12px; letter-spacing: -0.02em; }
 .onboarding-card p { font-size: 15px; color: var(--text-muted); margin: 0 0 24px; line-height: 1.5; }
 .onboarding-dots { display: flex; gap: 8px; justify-content: center; margin-bottom: 28px; }
@@ -1095,3 +1098,104 @@ input, textarea { font-family: inherit; }
 .more-icon { width: 44px; height: 44px; border-radius: 14px; display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
 .more-text { flex: 1; display: flex; flex-direction: column; gap: 2px; }
 .more-text strong { font-size: 15px; }
+
+/* ============================================================
+   RESPONSIVE — media-запросы (P0 фикс)
+   ============================================================ */
+
+/* Маленькие экраны (320px - 360px) */
+@media (max-width: 360px) {
+  .emoji-grid { grid-template-columns: repeat(6, 1fr); }
+  .cs-grid, .skin-grid { grid-template-columns: repeat(2, 1fr); }
+  .nav-item { font-size: 9px; }
+  .nav-item span { font-size: 9px; }
+  .hv2-status-btn { font-size: 9px; padding: 8px 4px; }
+  .greeting-title { font-size: var(--text-h2); }
+  .stats-grid { grid-template-columns: 1fr; }
+  .hero-card { padding: var(--space-4); }
+}
+
+/* Средние экраны и больше (480px+) */
+@media (min-width: 481px) {
+  .app { box-shadow: 0 0 40px rgba(0,0,0,0.1); }
+  .app-content { padding: var(--space-4) var(--space-6) var(--space-8); }
+}
+
+/* Десктоп (768px+) — центрируем и ограничиваем */
+@media (min-width: 768px) {
+  body { background: #0a0a14; }
+  .app {
+    max-width: var(--max-w);
+    margin: var(--space-6) auto;
+    border-radius: var(--radius-xl);
+    overflow: hidden;
+    min-height: auto;
+    box-shadow: 0 20px 80px rgba(0,0,0,0.3);
+  }
+  .bottom-nav { max-width: var(--max-w); border-radius: 0 0 var(--radius-xl) var(--radius-xl); }
+}
+
+/* Альбомная ориентация */
+@media (orientation: landscape) and (max-height: 500px) {
+  .app-header { height: 48px; }
+  .greeting-block { margin: var(--space-1) 0 var(--space-3); }
+  .companion-card { padding: var(--space-2) var(--space-4); }
+}
+
+/* ============================================================
+   ПРЕМИУМ ПОЛИРОВКА
+   ============================================================ */
+
+/* Контрастный текст на градиентах (P0 - WCAG фикс) */
+.hero-card, .ach-hero, .bonus-balance-card, .recap-hero, .missions-hero, .duels-hero, .tree-hero, .lb-hero, .buddies-hero, .cs-hero {
+  /* overlay для лучшего контраста белого текста */
+}
+.hero-card .hero-row > div > div:first-child,
+.ach-hero-label,
+.bonus-balance-label {
+  color: rgba(255, 255, 255, 0.95);
+  font-weight: var(--fw-medium);
+}
+
+/* Единый hero-базовый класс */
+.lb-hero, .buddies-hero, .recap-hero, .missions-hero, .duels-hero, .tree-hero, .cs-hero {
+  border-radius: var(--radius-lg);
+  padding: var(--space-6);
+  text-align: center;
+  margin-bottom: var(--space-4);
+}
+.lb-hero h2, .buddies-hero h2, .recap-hero h2, .missions-hero h2, .duels-hero h2, .tree-hero h2, .cs-hero h2 {
+  margin: var(--space-2) 0 var(--space-1);
+  font-size: var(--text-h2);
+  font-weight: var(--fw-heavy);
+  letter-spacing: var(--tracking-tight);
+}
+.lb-hero p, .buddies-hero p, .recap-hero p, .missions-hero p, .duels-hero p, .tree-hero p, .cs-hero p {
+  margin: 0;
+  font-size: var(--text-footnote);
+  color: var(--text-muted);
+}
+
+/* Tосты используют тему вместо хардкода */
+.ach-toast {
+  background: var(--toast-bg);
+  color: var(--toast-text);
+}
+
+/* Фокус-стили для accessibility (P2) */
+button:focus-visible,
+input:focus-visible,
+textarea:focus-visible,
+select:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+/* Уменьшение анимаций для пользователей с prefers-reduced-motion */
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}
