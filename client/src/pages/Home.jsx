@@ -46,8 +46,31 @@ export default function HomePage({ habits, loading, onLog, onUnlog, onDelete, on
     return arr;
   }, [habits, sort, query, todayIso]);
 
+  // Smart Grouping по времени дня (снижение cognitive load)
+  const useGrouping = sort === 'default' && !query.trim();
+  const groups = useGrouping ? {
+    morning: { label: '🌅 Утро', items: sorted.filter((h) => h.time_of_day === 'morning') },
+    afternoon: { label: '☀️ День', items: sorted.filter((h) => h.time_of_day === 'afternoon') },
+    evening: { label: '🌙 Вечер', items: sorted.filter((h) => h.time_of_day === 'evening') },
+    any: { label: '📋 В любое время', items: sorted.filter((h) => !h.time_of_day || h.time_of_day === 'any') },
+  } : null;
+  const hasGroups = groups && Object.values(groups).some((g) => g.items.length > 0);
+
+  // Fresh Start Effect (Milkman): особый баннер в понедельник / 1-е число
+  const showFreshStart = today.getDate() === 1 || today.getDay() === 1;
+
   return (
     <div className="page home">
+      {showFreshStart && (
+        <div className="fresh-start-banner">
+          <span className="fs-emoji">✨</span>
+          <div>
+            <strong>{today.getDate() === 1 ? 'Новый месяц — новый старт!' : 'Новая неделя — чистый лист!'}</strong>
+            <span>Идеальный момент, чтобы пересмотреть привычки</span>
+          </div>
+        </div>
+      )}
+
       <div className="greeting-block">
         <div className="greeting-line">{greet.emoji} {dateStr}</div>
         <h1 className="greeting-title">{greet.text}{userName ? `, ${userName}` : ''}!</h1>
@@ -103,9 +126,20 @@ export default function HomePage({ habits, loading, onLog, onUnlog, onDelete, on
         </div>
       ) : filtered.length === 0 ? (
         <div className="empty-state"><p>Ничего не найдено по запросу «{query}»</p></div>
+      ) : hasGroups ? (
+        <div className="habits-grouped">
+          {Object.values(groups).filter((g) => g.items.length > 0).map((g) => (
+            <div key={g.label} className="habit-group">
+              <h3 className="group-label">{g.label} <span className="muted small">{g.items.filter((h) => (h.logs || []).some((l) => l.date === todayIso && l.status === 'done')).length}/{g.items.length}</span></h3>
+              <div className="habits-list">
+                {g.items.map((h) => <HabitCard key={h.id} habit={h} onLog={onLog} onUnlog={onUnlog} onDelete={onDelete} onEdit={onEdit} />)}
+              </div>
+            </div>
+          ))}
+        </div>
       ) : (
         <div className="habits-list">
-          {filtered.map((h) => <HabitCard key={h.id} habit={h} onLog={onLog} onUnlog={onUnlog} onDelete={onDelete} onEdit={onEdit} />)}
+          {sorted.map((h) => <HabitCard key={h.id} habit={h} onLog={onLog} onUnlog={onUnlog} onDelete={onDelete} onEdit={onEdit} />)}
         </div>
       )}
     </div>

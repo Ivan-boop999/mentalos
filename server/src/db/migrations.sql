@@ -149,11 +149,17 @@ DO $$ BEGIN ALTER TABLE users ADD COLUMN total_checkins INTEGER NOT NULL DEFAULT
 DO $$ BEGIN ALTER TABLE users ADD COLUMN public_profile BOOLEAN NOT NULL DEFAULT FALSE;     EXCEPTION WHEN duplicate_column THEN NULL; END $$;
 
 DO $$ BEGIN ALTER TABLE habits ADD COLUMN category_id INTEGER REFERENCES categories(id) ON DELETE SET NULL; EXCEPTION WHEN duplicate_column THEN NULL; END $$;
-DO $$ BEGIN ALTER TABLE habits ADD COLUMN best_streak INTEGER NOT NULL DEFAULT 0;           EXCEPTION WHEN duplicate_column THEN NULL; END $$;
+DO $$ BEGIN ALTER TABLE habits ADD COLUMN best_streak INTEGER NOT NULL DEFAULT 0;     EXCEPTION WHEN duplicate_column THEN NULL; END $$;
 -- Тип цели: 'boolean' (да/нет), 'measurable' (количественная цель), 'count' (счётчик)
 DO $$ BEGIN ALTER TABLE habits ADD COLUMN goal_type TEXT NOT NULL DEFAULT 'boolean';        EXCEPTION WHEN duplicate_column THEN NULL; END $$;
 DO $$ BEGIN ALTER TABLE habits ADD COLUMN goal_target INTEGER NOT NULL DEFAULT 1;           EXCEPTION WHEN duplicate_column THEN NULL; END $$;
 DO $$ BEGIN ALTER TABLE habits ADD COLUMN goal_unit TEXT NOT NULL DEFAULT 'раз';            EXCEPTION WHEN duplicate_column THEN NULL; END $$;
+-- Психология привычек (Atomic Habits):
+DO $$ BEGIN ALTER TABLE habits ADD COLUMN cue TEXT;                                         EXCEPTION WHEN duplicate_column THEN NULL; END $$; -- implementation intention: «после чего?»
+DO $$ BEGIN ALTER TABLE habits ADD COLUMN identity TEXT;                                    EXCEPTION WHEN duplicate_column THEN NULL; END $$; -- «Кем я становлюсь?» (напр. «бегуном»)
+DO $$ BEGIN ALTER TABLE habits ADD COLUMN time_of_day TEXT NOT NULL DEFAULT 'any';          EXCEPTION WHEN duplicate_column THEN NULL; END $$; -- morning|afternoon|evening|any для smart grouping
+DO $$ BEGIN ALTER TABLE habits ADD COLUMN stack_after INTEGER REFERENCES habits(id) ON DELETE SET NULL; EXCEPTION WHEN duplicate_column THEN NULL; END $$; -- habit stacking: после какой привычки
+DO $$ BEGIN ALTER TABLE habits ADD COLUMN comeback_shield BOOLEAN NOT NULL DEFAULT FALSE;   EXCEPTION WHEN duplicate_column THEN NULL; END $$; -- «щит» восстановления (1 пропуск/нед не рвёт streak)
 
 -- habit_logs: расширяем для skip и measurable
 DO $$ BEGIN ALTER TABLE habit_logs ADD COLUMN status TEXT NOT NULL DEFAULT 'done';          EXCEPTION WHEN duplicate_column THEN NULL; END $$;

@@ -10,9 +10,12 @@ router.get('/', async (req, res) => {
     const { rows: habits } = await pool.query(
       `SELECT h.id, h.title, h.emoji, h.color, h.frequency, h.reminder_time, h.best_streak,
               h.goal_type, h.goal_target, h.goal_unit, h.category_id,
-              c.name AS category_name, c.emoji AS category_emoji
+              h.cue, h.identity, h.time_of_day, h.stack_after, h.comeback_shield,
+              c.name AS category_name, c.emoji AS category_emoji,
+              s.title AS stack_after_title, s.emoji AS stack_after_emoji
        FROM habits h
        LEFT JOIN categories c ON c.id = h.category_id
+       LEFT JOIN habits s ON s.id = h.stack_after
        WHERE h.user_id = $1 AND h.archived = FALSE
        ORDER BY h.created_at ASC`,
       [userId],
@@ -36,21 +39,23 @@ router.get('/', async (req, res) => {
     const notesByHabit = {};
     for (const n of notes) (notesByHabit[n.habit_id] ||= {})[n.date] = n.note;
 
+    const todayIso = new Date().toISOString().slice(0, 10);
     const result = habits.map((h) => {
       const freq = typeof h.frequency === 'string' ? JSON.parse(h.frequency) : h.frequency;
       const hLogs = logsByHabit[h.id] || [];
-      const streak = calcStreak(hLogs, freq);
+      const streak = calcStreak(hLogs, freq, h.comeback_shield);
+      const todayLog = hLogs.find((l) => l.date === todayIso);
       return {
         ...h,
         frequency: freq,
         category: h.category_id ? { id: h.category_id, name: h.category_name, emoji: h.category_emoji } : null,
+        stackAfter: h.stack_after ? { id: h.stack_after, title: h.stack_after_title, emoji: h.stack_after_emoji } : null,
         logs: hLogs,
         notes: notesByHabit[h.id] || {},
         streak,
         best_streak: Math.max(h.best_streak || 0, streak),
-        // сколько «value» набрано сегодня (для measurable)
-        todayValue: hLogs.find((l) => l.date === new Date().toISOString().slice(0, 10))?.value || 0,
-        todayStatus: hLogs.find((l) => l.date === new Date().toISOString().slice(0, 10))?.status || null,
+        todayValue: todayLog?.value || 0,
+        todayStatus: todayLog?.status || null,
       };
     });
 
@@ -61,24 +66,26 @@ router.get('/', async (req, res) => {
   }
 });
 
-/** POST /api/habits — создать (с поддержкой goal_type) */
+/** POST /api/habits — создать (с поддержкой goal_type + психология) */
 router.post('/', async (req, res) => {
   const userId = req.userId;
   const {
     title, emoji = '✨', color = '#7C3AED',
     frequency = { type: 'daily' }, reminderTime = null, categoryId = null,
     goalType = 'boolean', goalTarget = 1, goalUnit = 'раз',
+    cue = null, identity = null, timeOfDay = 'any', stackAfter = null,
   } = req.body;
   if (!title?.trim()) return res.status(400).json({ error: 'Название обязательно' });
 
   try {
     const { rows } = await pool.query(
       `INSERT INTO habits (user_id, title, emoji, color, frequency, reminder_time, category_id,
-                           goal_type, goal_target, goal_unit)
-       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
+                           goal_type, goal_target, goal_unit, cue, identity, time_of_day, stack_after)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14)
        RETURNING id, title, emoji, color, frequency, reminder_time, best_streak,
-                 goal_type, goal_target, goal_unit, category_id`,
-      [userId, title.trim(), emoji, color, frequency, reminderTime, categoryId, goalType, goalTarget, goalUnit],
+                 goal_type, goal_target, goal_unit, cue, identity, time_of_day, stack_after`,
+      [userId, title.trim(), emoji, color, frequency, reminderTime, categoryId,
+       goalType, goalTarget, goalUnit, cue, identity, timeOfDay, stackAfter],
     );
     const habit = rows[0];
     habit.frequency = typeof habit.frequency === 'string' ? JSON.parse(habit.frequency) : habit.frequency;
@@ -94,7 +101,8 @@ router.post('/', async (req, res) => {
 router.put('/:id', async (req, res) => {
   const userId = req.userId;
   const habitId = Number(req.params.id);
-  const { title, emoji, color, frequency, reminderTime, categoryId, goalType, goalTarget, goalUnit } = req.body;
+  const { title, emoji, color, frequency, reminderTime, categoryId,
+    goalType, goalTarget, goalUnit, cue, identity, timeOfDay, stackAfter } = req.body;
 
   try {
     const { rows } = await pool.query(
@@ -103,13 +111,16 @@ router.put('/:id', async (req, res) => {
          frequency = COALESCE($6, frequency), reminder_time = COALESCE($7, reminder_time),
          category_id = COALESCE($8, category_id),
          goal_type = COALESCE($9, goal_type), goal_target = COALESCE($10, goal_target),
-         goal_unit = COALESCE($11, goal_unit)
+         goal_unit = COALESCE($11, goal_unit),
+         cue = COALESCE($12, cue), identity = COALESCE($13, identity),
+         time_of_day = COALESCE($14, time_of_day), stack_after = COALESCE($15, stack_after)
        WHERE id = $1 AND user_id = $2 AND archived = FALSE
        RETURNING id, title, emoji, color, frequency, reminder_time, best_streak,
-                 goal_type, goal_target, goal_unit, category_id`,
+                 goal_type, goal_target, goal_unit, cue, identity, time_of_day, stack_after`,
       [habitId, userId, title, emoji, color,
         frequency ? JSON.stringify(frequency) : null, reminderTime ?? null, categoryId ?? null,
-        goalType ?? null, goalTarget ?? null, goalUnit ?? null],
+        goalType ?? null, goalTarget ?? null, goalUnit ?? null,
+        cue ?? null, identity ?? null, timeOfDay ?? null, stackAfter ?? null],
     );
     if (!rows.length) return res.status(404).json({ error: 'Привычка не найдена' });
     const h = rows[0];
@@ -296,10 +307,31 @@ router.post('/:id/log', async (req, res) => {
 
     const newAchievements = finalStatus === 'done' ? await checkAchievements(userId, habitId, streak) : [];
 
+    // ===== Variable reward (dopamine loop): ~12% шанс на «сюрприз» =====
+    let surprise = null;
+    if (finalStatus === 'done' && Math.random() < 0.12) {
+      const surprises = [
+        { type: 'bonus', amount: 5, label: '🎉 Сюрприз! +5 бонусов' },
+        { type: 'bonus', amount: 10, label: '🎁 Удача! +10 бонусов' },
+        { type: 'xp', amount: 20, label: '⚡ Бонусный опыт +20 XP' },
+        { type: 'streak_shield', amount: 1, label: '🛡️ Щит восстановления получен!' },
+      ];
+      surprise = surprises[Math.floor(Math.random() * surprises.length)];
+      if (surprise.type === 'bonus') {
+        await pool.query(`UPDATE users SET bonus_balance = bonus_balance + $1 WHERE id = $2`, [surprise.amount, userId]);
+        await pool.query(`INSERT INTO bonus_transactions (user_id, amount, reason) VALUES ($1, $2, 'surprise')`, [surprise.amount, userId]);
+      } else if (surprise.type === 'xp') {
+        await pool.query(`UPDATE users SET xp = xp + $1 WHERE id = $2`, [surprise.amount, userId]);
+        await updateLevel(userId);
+      } else if (surprise.type === 'streak_shield') {
+        await pool.query(`UPDATE habits SET comeback_shield = TRUE WHERE id = $1`, [habitId]);
+      }
+    }
+
     res.json({
       ok: true, date, status: finalStatus, value, streak,
       best_streak: Math.max(streak, hRows[0]?.best_streak || 0),
-      newAchievements, bonusEarned, xpEarned, leveledUp,
+      newAchievements, bonusEarned, xpEarned, leveledUp, surprise,
     });
   } catch (err) {
     console.error('log:', err);
@@ -403,7 +435,7 @@ async function updateLevel(userId) {
   return newLevel;
 }
 
-function calcStreak(logs, frequency) {
+function calcStreak(logs, frequency, comebackShield = false) {
   // logs: [{date, status, value}]
   if (!logs.length) return 0;
   const doneSet = new Set(logs.filter((l) => l.status === 'done').map((l) => l.date));
@@ -411,6 +443,7 @@ function calcStreak(logs, frequency) {
   const days = frequency?.type === 'weekly' ? frequency.days : null;
 
   let streak = 0;
+  let shieldsUsed = 0;
   const cursor = new Date();
   cursor.setHours(0, 0, 0, 0);
   for (let i = 0; i < 365; i++) {
@@ -419,7 +452,15 @@ function calcStreak(logs, frequency) {
     if (!expected) { cursor.setDate(cursor.getDate() - 1); continue; }
     if (doneSet.has(iso)) streak++;
     else if (skipSet.has(iso)) { /* skip не прерывает и не увеличивает */ }
-    else if (i > 0) break;
+    else if (i > 0) {
+      // Comeback shield: 1 пропуск в неделю не рвёт стрик
+      if (comebackShield && shieldsUsed < 1) {
+        shieldsUsed++;
+        // продолжаем, не инкрементируем
+      } else {
+        break;
+      }
+    }
     cursor.setDate(cursor.getDate() - 1);
   }
   return streak;

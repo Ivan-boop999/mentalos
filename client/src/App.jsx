@@ -16,14 +16,16 @@ import ChallengesPage from './pages/Challenges.jsx';
 import MorePage from './pages/More.jsx';
 import LeaderboardPage from './pages/Leaderboard.jsx';
 import ArchivePage from './pages/Archive.jsx';
+import DailyBrief from './pages/DailyBrief.jsx';
 import AddHabitModal from './components/AddHabitModal.jsx';
 import AchievementToast from './components/AchievementToast.jsx';
 import LevelUpToast from './components/LevelUpToast.jsx';
+import SurpriseToast from './components/SurpriseToast.jsx';
 import Celebration from './components/Celebration.jsx';
 import Onboarding from './components/Onboarding.jsx';
 
 export default function App() {
-  const { initData, inTelegram, tgTheme, hapticFeedback, tg } = useTelegram();
+  const { initData, inTelegram, tgTheme, hapticFeedback, tg, showBackButton, hideBackButton, cloudGet, cloudSet } = useTelegram();
   const timezone = useTimezone(initData);
   const [settings, setSettings] = useState(null);
   const [onboarded, setOnboarded] = useState(null);
@@ -36,7 +38,20 @@ export default function App() {
   const [editingHabit, setEditingHabit] = useState(null);
   const [achievement, setAchievement] = useState(null);
   const [levelUp, setLevelUp] = useState(null);
+  const [surprise, setSurprise] = useState(null);
   const [celebrate, setCelebrate] = useState(0);
+  const [showBrief, setShowBrief] = useState(false);
+
+  // Daily Brief показывается 1 раз в день (проверяем по дате в localStorage)
+  useEffect(() => {
+    if (!initData || habits.length === 0) return;
+    const today = new Date().toISOString().slice(0, 10);
+    const lastBrief = localStorage.getItem('mentalos-brief-date');
+    if (lastBrief !== today) {
+      setShowBrief(true);
+      localStorage.setItem('mentalos-brief-date', today);
+    }
+  }, [initData, habits.length]);
 
   useEffect(() => { setInitData(initData); }, [initData]);
 
@@ -91,8 +106,15 @@ export default function App() {
       if (res.leveledUp) {
         setLevelUp(res.leveledUp);
         hapticFeedback('heavy');
-        playSound('levelup'); // фанфары уровня
-        loadSettings(); // обновим Lv в шапке
+        playSound('levelup');
+        loadSettings();
+      }
+      if (res.surprise) {
+        setSurprise(res.surprise);
+        hapticFeedback('heavy');
+        playSound('success');
+        // Если сюрприз = щит — перезагружаем привычки чтобы отразить comeback_shield
+        if (res.surprise.type === 'streak_shield') loadHabits();
       }
       if (typeof res.streak === 'number') {
         setHabits((prev) => prev.map((h) => (h.id === habitId ? { ...h, streak: res.streak, best_streak: res.best_streak || h.best_streak } : h)));
@@ -128,6 +150,25 @@ export default function App() {
     if (page !== 'home' || habits.length > 0) playSound('whoosh');
     setPage(page);
   };
+
+  // BackButton: показываем на вложенных экранах (Telegram нативная навигация)
+  const rootPages = ['home', 'more'];
+  useEffect(() => {
+    if (!inTelegram) return;
+    if (rootPages.includes(page)) {
+      hideBackButton();
+    } else {
+      showBackButton(() => navigate('home'));
+    }
+    return () => {};
+  }, [page, inTelegram]);
+
+  // CloudStorage: кэшируем привычки для мгновенной загрузки (офлайн-буфер)
+  useEffect(() => {
+    if (habits.length > 0) {
+      cloudSet('mentalos_habits_cache', JSON.stringify({ d: new Date().toISOString().slice(0, 10), h: habits.slice(0, 20).map((h) => ({ id: h.id, t: h.title, e: h.emoji })) }));
+    }
+  }, [habits]);
 
   const openCreate = () => { setEditingHabit(null); setModalOpen(true); playSound('pop'); };
   const openEdit = (habit) => { setEditingHabit(habit); setModalOpen(true); playSound('click'); };
@@ -216,12 +257,18 @@ export default function App() {
             onClose={() => { setModalOpen(false); setEditingHabit(null); }}
             onSubmit={handleSubmitHabit}
             habit={editingHabit}
+            allHabits={habits}
             timezone={timezone}
           />
         )}
 
         <AchievementToast achievement={achievement} onDone={() => setAchievement(null)} />
         <LevelUpToast levelUp={levelUp} onDone={() => setLevelUp(null)} />
+        <SurpriseToast surprise={surprise} onDone={() => setSurprise(null)} />
+
+        {showBrief && (
+          <DailyBrief habits={habits} userName={userName} onClose={() => setShowBrief(false)} />
+        )}
         <Celebration trigger={celebrate} />
 
         {onboarded === false && <Onboarding onDone={() => setOnboarded(true)} />}

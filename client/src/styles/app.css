@@ -606,6 +606,83 @@ input, textarea { font-family: inherit; }
 .archive-info strong { font-size: 14px; }
 .archive-restore { padding: 8px 12px !important; font-size: 11px !important; flex-shrink: 0; }
 
+/* ===== Fresh Start баннер ===== */
+.fresh-start-banner {
+  display: flex; align-items: center; gap: 12px;
+  background: linear-gradient(135deg, var(--accent-soft), color-mix(in srgb, var(--accent) 8%, transparent));
+  border: 1px solid color-mix(in srgb, var(--accent) 30%, transparent);
+  border-radius: var(--radius-md);
+  padding: 14px 16px;
+  margin-bottom: 14px;
+}
+.fresh-start-banner strong { display: block; font-size: 14px; }
+.fresh-start-banner span { font-size: 12px; color: var(--text-muted); }
+.fs-emoji { font-size: 28px; }
+
+/* ===== Smart Grouping ===== */
+.habits-grouped { display: flex; flex-direction: column; gap: 18px; }
+.habit-group h3.group-label {
+  font-size: 13px; font-weight: 700; color: var(--text-muted);
+  text-transform: uppercase; letter-spacing: 0.05em;
+  margin: 0 0 10px 4px;
+  display: flex; align-items: center; gap: 8px;
+}
+
+/* ===== Psychology toggle (в AddHabitModal) ===== */
+.psych-toggle {
+  display: flex; align-items: center; gap: 6px;
+  font-size: 13px; font-weight: 700; color: var(--accent);
+  padding: 10px 12px; background: var(--accent-soft);
+  border-radius: 10px; margin-top: 6px;
+}
+
+/* ===== Comeback shield бейдж ===== */
+.shield-chip {
+  display: inline-flex; align-items: center; gap: 2px;
+  font-size: 10px; font-weight: 700; color: #3B82F6;
+  background: rgba(59, 130, 246, 0.15);
+  padding: 2px 7px; border-radius: 999px;
+}
+
+/* ===== Surprise toast ===== */
+.surprise-overlay { z-index: 220; }
+.surprise-toast { border-color: #FBBF24; box-shadow: 0 24px 70px rgba(251, 191, 36, 0.5); }
+
+/* ===== Daily Brief ===== */
+.daily-brief-overlay {
+  position: fixed; inset: 0; z-index: 250;
+  background: var(--bg-grad); background-color: var(--bg);
+  display: flex; align-items: center; justify-content: center;
+  padding: 24px; animation: fade 0.3s ease;
+}
+.daily-brief {
+  max-width: 380px; width: 100%;
+  text-align: center;
+  display: flex; flex-direction: column; gap: 18px;
+}
+.brief-emoji { font-size: 60px; animation: float 3s ease-in-out infinite; }
+.brief-title { font-size: 26px; font-weight: 800; margin: 0; letter-spacing: -0.02em; }
+.brief-stat {
+  display: inline-flex; align-items: center; gap: 6px; justify-content: center;
+  font-size: 14px; color: var(--text-muted);
+  background: var(--glass); padding: 8px 16px; border-radius: 999px;
+  align-self: center;
+}
+.brief-stat strong { color: var(--text); }
+.brief-label { font-size: 12px; font-weight: 700; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.05em; margin: 0 0 10px; display: flex; align-items: center; justify-content: center; gap: 5px; }
+.brief-mood-row { display: flex; justify-content: center; gap: 8px; }
+.brief-mood-btn { font-size: 32px; padding: 8px; border-radius: 14px; background: var(--card); border: 2px solid transparent; transition: all 0.2s ease; }
+.brief-mood-btn.active { border-color: var(--accent); background: var(--accent-soft); transform: scale(1.15); }
+.brief-priorities { text-align: left; background: var(--glass); border-radius: var(--radius-md); padding: 16px; }
+.brief-priority { display: flex; align-items: center; gap: 10px; padding: 8px 0; border-bottom: 1px solid var(--border); }
+.brief-priority:last-child { border-bottom: none; }
+.brief-prio-emoji { font-size: 22px; }
+.brief-prio-title { font-weight: 600; font-size: 14px; flex: 1; }
+.brief-identity { font-size: 11px; color: var(--accent); font-weight: 700; }
+.brief-quote { background: var(--glass); border-radius: var(--radius-md); padding: 16px; }
+.brief-quote p { margin: 0 0 6px; font-size: 14px; font-style: italic; font-weight: 600; }
+.brief-quote span { font-size: 12px; color: var(--text-muted); }
+
 /* ===== Settings ===== */
 .settings-section { margin-bottom: 24px; }
 .theme-options { display: flex; flex-direction: column; gap: 10px; }

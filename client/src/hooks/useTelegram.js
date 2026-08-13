@@ -1,15 +1,14 @@
 import { useEffect, useState } from 'react';
 
 /**
- * Доступ к Telegram WebApp SDK.
- * Вне Telegram (например, локально в браузере) работает в режиме заглушки —
- * удобно разрабатывать и тестировать.
+ * Доступ к Telegram WebApp SDK + нативным API.
+ * Вне Telegram работает в режиме заглушки.
  */
 export function useTelegram() {
   const [tg, setTg] = useState(null);
   const [initData, setInitData] = useState('');
   const [inTelegram, setInTelegram] = useState(false);
-  const [tgTheme, setTgTheme] = useState('light'); // тема самого Telegram ('light'|'dark')
+  const [tgTheme, setTgTheme] = useState('light');
 
   useEffect(() => {
     const wa = window.Telegram?.WebApp;
@@ -20,23 +19,65 @@ export function useTelegram() {
       setInitData(wa.initData || '');
       setInTelegram(true);
       setTgTheme(wa.colorScheme || 'light');
-
-      // Реагируем на смену системной темы Telegram
       wa.onEvent('themeChanged', () => setTgTheme(wa.colorScheme || 'light'));
     } else {
-      // Режим разработки вне Telegram
       setInTelegram(false);
       setInitData('dev');
     }
   }, []);
 
   const hapticFeedback = (style = 'light') => {
-    try {
-      tg?.HapticFeedback?.impactOccurred?.(style);
-    } catch {
-      /* noop */
-    }
+    try { tg?.HapticFeedback?.impactOccurred?.(style); } catch {}
   };
 
-  return { tg, initData, inTelegram, tgTheme, hapticFeedback };
+  // ===== Нативные кнопки (MainButton, BackButton) =====
+  const showMainButton = (text, onClick) => {
+    try {
+      const mb = tg?.MainButton;
+      if (!mb) return;
+      mb.setText(text);
+      mb.show();
+      mb.onClick(onClick);
+    } catch {}
+  };
+  const hideMainButton = () => {
+    try { tg?.MainButton?.hide(); } catch {}
+  };
+  const showBackButton = (onClick) => {
+    try {
+      const bb = tg?.BackButton;
+      if (!bb) return;
+      bb.show();
+      bb.onClick(onClick);
+    } catch {}
+  };
+  const hideBackButton = () => {
+    try { tg?.BackButton?.hide(); } catch {}
+  };
+
+  // ===== CloudStorage (офлайн кэш) =====
+  const cloudGet = (key) => new Promise((resolve) => {
+    try {
+      tg?.CloudStorage?.getItem(key, (err, val) => resolve(err ? null : val));
+    } catch { resolve(null); }
+  });
+  const cloudSet = (key, value) => new Promise((resolve) => {
+    try {
+      tg?.CloudStorage?.setItem(key, value, (err, ok) => resolve(err ? false : true));
+    } catch { resolve(false); }
+  });
+
+  // ===== Disable vertical swipe (чтобы не закрывал мини-апп) =====
+  const disableVerticalSwipes = () => {
+    try { tg?.disableVerticalSwipes?.(); } catch {}
+  };
+  const enableVerticalSwipes = () => {
+    try { tg?.enableVerticalSwipes?.(); } catch {}
+  };
+
+  return {
+    tg, initData, inTelegram, tgTheme, hapticFeedback,
+    showMainButton, hideMainButton, showBackButton, hideBackButton,
+    cloudGet, cloudSet, disableVerticalSwipes, enableVerticalSwipes,
+  };
 }
