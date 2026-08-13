@@ -20,6 +20,9 @@ import challengesRouter from './routes/challenges.js';
 import leaderboardRouter from './routes/leaderboard.js';
 import companionRouter from './routes/companion.js';
 import buddiesRouter from './routes/buddies.js';
+import missionsRouter from './routes/missions.js';
+import duelsRouter from './routes/duels.js';
+import recapRouter from './routes/recap.js';
 import exportRouter from './routes/export.js';
 import { initBot } from './bot/index.js';
 
@@ -71,6 +74,9 @@ app.use('/api/challenges', authMiddleware, challengesRouter);
 app.use('/api/leaderboard', authMiddleware, leaderboardRouter);
 app.use('/api/companion', authMiddleware, companionRouter);
 app.use('/api/buddies', authMiddleware, buddiesRouter);
+app.use('/api/missions', authMiddleware, missionsRouter);
+app.use('/api/duels', authMiddleware, duelsRouter);
+app.use('/api/recap', authMiddleware, recapRouter);
 app.use('/api/export', authMiddleware, exportRouter);
 
 // ===== Отдаём собранный фронтенд (статика) =====

@@ -1,15 +1,59 @@
 import { useEffect, useState } from 'react';
 import { api } from '../api/client';
-import { Plus, Trash2, BookOpen } from 'lucide-react';
+import { Plus, Trash2, BookOpen, Lock } from 'lucide-react';
 
 export default function JournalPage() {
   const [entries, setEntries] = useState([]);
   const [open, setOpen] = useState(false);
   const [title, setTitle] = useState('');
   const [content, setContent] = useState('');
+  const [locked, setLocked] = useState(true);
+  const [biometricAvailable, setBiometricAvailable] = useState(false);
 
   const load = () => api.getJournal().then(setEntries).catch(() => {});
-  useEffect(() => { load(); }, []);
+
+  // BiometricManager: приватный доступ к дневнику (FaceID/отпечаток)
+  useEffect(() => {
+    const wa = window.Telegram?.WebApp;
+    const bm = wa?.BiometricManager;
+    if (bm) {
+      try {
+        bm.initBiometric();
+        setBiometricAvailable(bm.isBiometricAvailable);
+        if (bm.isBiometricAvailable && !bm.isAccessRequested) {
+          bm.requestBiometricAccess({ reason: 'Разрешите доступ для защиты дневника' });
+        }
+      } catch {}
+    }
+    // Если биометрия недоступна — открываем сразу
+    if (!bm?.isBiometricAvailable) setLocked(false);
+  }, []);
+
+  const unlock = () => {
+    const wa = window.Telegram?.WebApp;
+    const bm = wa?.BiometricManager;
+    if (bm?.isBiometricAvailable && bm.isAccessGranted) {
+      bm.authenticate('Откройте дневник', (ok) => { if (ok) { setLocked(false); load(); } });
+    } else {
+      setLocked(false); // фолбэк — без биометрии
+      load();
+    }
+  };
+
+  useEffect(() => { if (!locked) load(); }, [locked]);
+
+  if (locked && biometricAvailable) {
+    return (
+      <div className="page journal">
+        <div className="empty-state">
+          <Lock size={56} style={{ color: 'var(--accent)', marginBottom: 14 }} />
+          <h3>Дневник заблокирован</h3>
+          <p>Твой дневник защищён биометрией</p>
+          <button className="primary-btn" onClick={unlock}>🔓 Открыть с FaceID/отпечатком</button>
+        </div>
+      </div>
+    );
+  }
 
   const submit = async () => {
     if (!content.trim()) return;

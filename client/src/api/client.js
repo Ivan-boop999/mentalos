@@ -78,14 +78,32 @@ export const api = {
   getLeaderboard: () => request('/api/leaderboard'),
   setPublicProfile: (pub) => request('/api/leaderboard/visibility', { method: 'PUT', body: JSON.stringify({ public: pub }) }),
 
-  // Companion (живой персонаж)
+  // Companion (живой персонаж + кастомизация)
   getCompanion: () => request('/api/companion'),
   updateCompanion: (data) => request('/api/companion', { method: 'PUT', body: JSON.stringify(data) }),
+  getCompanionShop: () => request('/api/companion/shop'),
+  getCompanionInventory: () => request('/api/companion/inventory'),
+  buyCompanionItem: (code) => request('/api/companion/buy', { method: 'POST', body: JSON.stringify({ code }) }),
+  equipCompanionItem: (code, category) => request('/api/companion/equip', { method: 'POST', body: JSON.stringify({ code, category }) }),
 
   // Buddies (бадди-механика)
   getBuddies: () => request('/api/buddies'),
   inviteBuddy: (code) => request('/api/buddies/invite', { method: 'POST', body: JSON.stringify({ code }) }),
   removeBuddy: (id) => request(`/api/buddies/${id}`, { method: 'DELETE' }),
+
+  // Missions (Mission of the Day)
+  getMissions: () => request('/api/missions'),
+
+  // Duels (PvP)
+  getDuels: () => request('/api/duels'),
+  createDuel: (opponentId, wager) => request('/api/duels', { method: 'POST', body: JSON.stringify({ opponentId, wager }) }),
+  finishDuel: (id) => request(`/api/duels/${id}/finish`, { method: 'POST' }),
+
+  // Recap (Weekly Recap)
+  getRecap: () => request('/api/recap'),
+
+  // Streak Insurance
+  buyStreakInsurance: () => request('/api/habits/buy-streak-insurance', { method: 'POST' }),
 
   // Export
   exportData: () => '/api/export',

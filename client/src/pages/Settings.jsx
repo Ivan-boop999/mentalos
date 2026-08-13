@@ -131,8 +131,22 @@ export default function SettingsPage({ timezone = 'UTC', settings = {}, onChange
           <div className="about-row"><span>Всего отметок</span><strong>{settings.totalCheckins || 0}</strong></div>
           <div className="about-row"><span>Уровень</span><strong>Lv {settings.level || 1}</strong></div>
           <div className="about-row"><span>Бонусов</span><strong>🪙 {settings.bonus_balance || 0}</strong></div>
+          <div className="about-row"><span>Страховка стрика</span><strong>{settings.streak_insurance ? '🛡️ Активна' : '—'}</strong></div>
         </div>
       </section>
+
+      {/* Streak Insurance */}
+      {!settings.streak_insurance && (
+        <section className="settings-section">
+          <h3 className="card-title">🛡️ Страховка стрика</h3>
+          <p className="settings-hint" style={{ marginBottom: 10 }}>Если прервёшь стрик — автоматически восстановится. 1 использование.</p>
+          <button className="primary-btn" onClick={async () => {
+            if (!confirm('Купить страховку стрика за 100 бонусов?')) return;
+            try { await api.buyStreakInsurance(); onChange?.(); alert('🛡️ Страховка активирована!'); }
+            catch (e) { alert('❌ ' + e.message); }
+          }}>Купить за 🪙 100</button>
+        </section>
+      )}
 
       <section className="settings-section">
         <h3 className="card-title">О приложении</h3>

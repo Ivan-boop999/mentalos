@@ -145,6 +145,58 @@ CREATE TABLE IF NOT EXISTS buddies (
     UNIQUE (user_id, buddy_id)
 );
 
+-- Кастомизация компаньона (шапки, очки, одежда — покупаются за бонусы)
+CREATE TABLE IF NOT EXISTS companion_items (
+    id              SERIAL PRIMARY KEY,
+    code            TEXT UNIQUE NOT NULL,
+    title           TEXT NOT NULL,
+    category        TEXT NOT NULL,           -- hat | glasses | accessory | body
+    emoji           TEXT NOT NULL,
+    price           INTEGER NOT NULL DEFAULT 50,
+    sort_order      INTEGER NOT NULL DEFAULT 0
+);
+
+-- Инвентарь пользователя (купленные предметы)
+CREATE TABLE IF NOT EXISTS user_items (
+    id              SERIAL PRIMARY KEY,
+    user_id         BIGINT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    item_code       TEXT NOT NULL,
+    equipped        BOOLEAN NOT NULL DEFAULT FALSE,
+    acquired_at     TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    UNIQUE (user_id, item_code)
+);
+
+-- Миссии дня (Mission of the Day)
+CREATE TABLE IF NOT EXISTS missions (
+    id              SERIAL PRIMARY KEY,
+    user_id         BIGINT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    code            TEXT NOT NULL,           -- напр. 'checkin_3_morning'
+    title           TEXT NOT NULL,
+    description     TEXT,
+    target          INTEGER NOT NULL DEFAULT 1,
+    progress        INTEGER NOT NULL DEFAULT 0,
+    reward          INTEGER NOT NULL DEFAULT 10,
+    completed       BOOLEAN NOT NULL DEFAULT FALSE,
+    mission_date    DATE NOT NULL DEFAULT CURRENT_DATE,
+    created_at      TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    UNIQUE (user_id, code, mission_date)
+);
+
+-- Битвы привычек (Duels PvP)
+CREATE TABLE IF NOT EXISTS duels (
+    id              SERIAL PRIMARY KEY,
+    challenger_id   BIGINT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    opponent_id     BIGINT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    status          TEXT NOT NULL DEFAULT 'pending', -- pending | active | finished
+    challenger_streak INTEGER NOT NULL DEFAULT 0,
+    opponent_streak  INTEGER NOT NULL DEFAULT 0,
+    winner_id       BIGINT REFERENCES users(id),
+    wager           INTEGER NOT NULL DEFAULT 50,     -- ставка в бонусах
+    started_at      TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    finished_at     TIMESTAMPTZ,
+    UNIQUE (challenger_id, opponent_id, started_at)
+);
+
 -- ===== ДОБАВЛЯЕМ КОЛОНКИ (идемпотентно) =====
 DO $$ BEGIN ALTER TABLE users ADD COLUMN timezone TEXT NOT NULL DEFAULT 'UTC';              EXCEPTION WHEN duplicate_column THEN NULL; END $$;
 DO $$ BEGIN ALTER TABLE users ADD COLUMN bonus_balance INTEGER NOT NULL DEFAULT 0;          EXCEPTION WHEN duplicate_column THEN NULL; END $$;
@@ -160,7 +212,9 @@ DO $$ BEGIN ALTER TABLE users ADD COLUMN public_profile BOOLEAN NOT NULL DEFAULT
 DO $$ BEGIN ALTER TABLE users ADD COLUMN companion_name TEXT NOT NULL DEFAULT 'Спарк';       EXCEPTION WHEN duplicate_column THEN NULL; END $$;
 DO $$ BEGIN ALTER TABLE users ADD COLUMN companion_type TEXT NOT NULL DEFAULT 'spark';      EXCEPTION WHEN duplicate_column THEN NULL; END $$; -- spark|leaf|drop|flame
 DO $$ BEGIN ALTER TABLE users ADD COLUMN companion_xp INTEGER NOT NULL DEFAULT 0;            EXCEPTION WHEN duplicate_column THEN NULL; END $$;
-DO $$ BEGIN ALTER TABLE users ADD COLUMN companion_mood INTEGER NOT NULL DEFAULT 50;         EXCEPTION WHEN duplicate_column THEN NULL; END $$; -- 0-100
+DO $$ BEGIN ALTER TABLE users ADD COLUMN companion_mood INTEGER NOT NULL DEFAULT 50;         EXCEPTION WHEN duplicate_column THEN NULL; END $$;
+DO $$ BEGIN ALTER TABLE users ADD COLUMN streak_insurance BOOLEAN NOT NULL DEFAULT FALSE;    EXCEPTION WHEN duplicate_column THEN NULL; END $$; -- активная страховка стрика
+DO $$ BEGIN ALTER TABLE users ADD COLUMN companion_equipped JSONB NOT NULL DEFAULT '{}'::jsonb; EXCEPTION WHEN duplicate_column THEN NULL; END $$; -- {hat, glasses, accessory} -- 0-100
 
 DO $$ BEGIN ALTER TABLE habits ADD COLUMN category_id INTEGER REFERENCES categories(id) ON DELETE SET NULL; EXCEPTION WHEN duplicate_column THEN NULL; END $$;
 DO $$ BEGIN ALTER TABLE habits ADD COLUMN best_streak INTEGER NOT NULL DEFAULT 0;     EXCEPTION WHEN duplicate_column THEN NULL; END $$;
@@ -215,6 +269,23 @@ CREATE INDEX IF NOT EXISTS idx_uc_user ON user_challenges(user_id);
 CREATE INDEX IF NOT EXISTS idx_subtasks_habit ON habit_subtasks(habit_id);
 CREATE INDEX IF NOT EXISTS idx_buddies_user ON buddies(user_id);
 CREATE INDEX IF NOT EXISTS idx_buddies_buddy ON buddies(buddy_id);
+CREATE INDEX IF NOT EXISTS idx_missions_user_date ON missions(user_id, mission_date);
+CREATE INDEX IF NOT EXISTS idx_duels_active ON duels(challenger_id, opponent_id) WHERE status IN ('pending', 'active');
+
+-- ===== Seed companion_items =====
+INSERT INTO companion_items (code, title, category, emoji, price, sort_order) VALUES
+  ('hat_crown', 'Корона', 'hat', '👑', 200, 1),
+  ('hat_cap', 'Кепка', 'hat', '🧢', 100, 2),
+  ('hat_top', 'Цилиндр', 'hat', '🎩', 150, 3),
+  ('hat_party', 'Вечеринка', 'hat', '🥳', 120, 4),
+  ('glasses_sun', 'Солнечные', 'glasses', '🕶️', 100, 1),
+  ('glasses_round', 'Круглые', 'glasses', '🤓', 120, 2),
+  ('glasses_3d', '3D очки', 'glasses', '🥽', 150, 3),
+  ('acc_bow', 'Бант', 'accessory', '🎀', 80, 1),
+  ('acc_wings', 'Крылья', 'accessory', '🦋', 300, 2),
+  ('acc_halo', 'Нимб', 'accessory', '😇', 500, 3),
+  ('acc_fire', 'Огонь', 'accessory', '💫', 250, 4)
+ON CONFLICT (code) DO NOTHING;
 CREATE UNIQUE INDEX IF NOT EXISTS uq_referral_code ON users(referral_code);
 
 -- ===== Seed HABIT TEMPLATES (для библиотеки) =====

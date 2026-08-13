@@ -17,6 +17,11 @@ import MorePage from './pages/More.jsx';
 import LeaderboardPage from './pages/Leaderboard.jsx';
 import ArchivePage from './pages/Archive.jsx';
 import BuddiesPage from './pages/Buddies.jsx';
+import MissionsPage from './pages/Missions.jsx';
+import DuelsPage from './pages/Duels.jsx';
+import RecapPage from './pages/Recap.jsx';
+import HabitTreePage from './pages/HabitTree.jsx';
+import CompanionShopPage from './pages/CompanionShop.jsx';
 import DailyBrief from './pages/DailyBrief.jsx';
 import AddHabitModal from './components/AddHabitModal.jsx';
 import AchievementToast from './components/AchievementToast.jsx';
@@ -42,6 +47,10 @@ export default function App() {
   const [surprise, setSurprise] = useState(null);
   const [celebrate, setCelebrate] = useState(0);
   const [showBrief, setShowBrief] = useState(false);
+  const [buddiesList, setBuddiesList] = useState([]);
+
+  const loadBuddies = () => api.getBuddies().then(setBuddiesList).catch(() => {});
+  useEffect(() => { if (initData) loadBuddies(); }, [initData]);
 
   // Daily Brief показывается 1 раз в день (проверяем по дате в localStorage)
   useEffect(() => {
@@ -217,6 +226,11 @@ export default function App() {
             {page === 'leaderboard' && '👑 Топ'}
             {page === 'archive' && '🗄️ Архив'}
             {page === 'buddies' && '🤝 Бадди'}
+            {page === 'missions' && '🎯 Миссии'}
+            {page === 'duels' && '⚔️ Битвы'}
+            {page === 'recap' && '📊 Отчёт'}
+            {page === 'tree' && '🌳 Дерево'}
+            {page === 'companion-shop' && '🎭 Компаньон'}
           </h1>
           {settings?.level > 0 && (
             <div className="level-badge">Lv {settings.level}</div>
@@ -249,6 +263,11 @@ export default function App() {
           {page === 'leaderboard' && <LeaderboardPage settings={settings} onChange={loadSettings} />}
           {page === 'archive' && <ArchivePage />}
           {page === 'buddies' && <BuddiesPage />}
+          {page === 'missions' && <MissionsPage />}
+          {page === 'duels' && <DuelsPage buddies={buddiesList} />}
+          {page === 'recap' && <RecapPage />}
+          {page === 'tree' && <HabitTreePage habits={habits} />}
+          {page === 'companion-shop' && <CompanionShopPage />}
         </main>
 
         {page === 'home' && <button className="fab" onClick={openCreate} aria-label="Добавить">+</button>}

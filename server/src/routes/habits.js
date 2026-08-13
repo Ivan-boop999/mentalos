@@ -227,6 +227,25 @@ router.get('/:id/strength', async (req, res) => {
 });
 
 /**
+ * POST /api/habits/buy-streak-insurance — купить страховку стрика (100 бонусов)
+ */
+router.post('/buy-streak-insurance', async (req, res) => {
+  const userId = req.userId;
+  try {
+    const { rows: u } = await pool.query(`SELECT bonus_balance, streak_insurance FROM users WHERE id = $1`, [userId]);
+    if (u[0]?.streak_insurance) return res.status(400).json({ error: 'Страховка уже активна' });
+    if ((u[0]?.bonus_balance || 0) < 100) return res.status(402).json({ error: 'Недостаточно бонусов' });
+
+    await pool.query(`UPDATE users SET bonus_balance = bonus_balance - 100, streak_insurance = TRUE WHERE id = $1`, [userId]);
+    await pool.query(`INSERT INTO bonus_transactions (user_id, amount, reason) VALUES ($1, -100, 'streak_insurance')`, [userId]);
+    res.json({ ok: true, balance: (u[0].bonus_balance - 100) });
+  } catch (err) {
+    console.error('buy insurance:', err);
+    res.status(500).json({ error: 'Ошибка сервера' });
+  }
+});
+
+/**
  * POST /api/habits/:id/log
  * body: { date?, status: 'done'|'skip', value?, note? }
  * Универсальная отметка с поддержкой skip и measurable.

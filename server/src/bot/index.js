@@ -29,6 +29,29 @@ async function buildProgressText(userId) {
   return { text, done, total };
 }
 
+/** Строит текст недельного отчёта для /recap */
+async function buildRecapText(userId) {
+  const { rows: logs } = await pool.query(
+    `SELECT log_date::text AS date, COUNT(*) AS done
+     FROM habit_logs WHERE user_id = $1 AND status = 'done' AND log_date >= CURRENT_DATE - INTERVAL '7 days'
+     GROUP BY log_date ORDER BY log_date`, [userId],
+  );
+  const totalCheckins = logs.reduce((s, l) => s + Number(l.done), 0);
+  const activeDays = logs.length;
+  const { rows: habits } = await pool.query(`SELECT COALESCE(MAX(best_streak), 0) AS s FROM habits WHERE user_id = $1 AND archived = FALSE`, [userId]);
+
+  let text = `📊 *Отчёт за неделю*\n\n`;
+  text += `✅ Отметок: *${totalCheckins}*\n`;
+  text += `📅 Активных дней: *${activeDays}/7*\n`;
+  text += `🔥 Лучший стрик: *${habits[0]?.s || 0}*\n\n`;
+  if (totalCheckins > 0) {
+    text += `💪 Отличная неделя! Продолжай в том же духе.`;
+  } else {
+    text += `🌱 Новая неделя — новый шанс начать!`;
+  }
+  return text;
+}
+
 export function initBot() {
   const token = process.env.BOT_TOKEN;
   const webappUrl = process.env.WEBAPP_URL;
@@ -43,9 +66,39 @@ export function initBot() {
   bot.setMyCommands([
     { command: 'start', description: 'Запустить MentalOS 🚀' },
     { command: 'progress', description: 'Прогресс дня 📊' },
+    { command: 'recap', description: 'Отчёт за неделю 📈' },
     { command: 'invite', description: 'Пригласить друга и получить бонусы 🎁' },
     { command: 'help', description: 'Как пользоваться' },
   ]);
+
+  // Reply-keyboard: кнопка быстрого доступа к MentalOS прямо в поле ввода
+  if (webappUrl) {
+    bot.setMyCommands([
+      { command: 'start', description: 'Запустить MentalOS 🚀' },
+      { command: 'progress', description: 'Прогресс дня 📊' },
+      { command: 'recap', description: 'Отчёт за неделю 📈' },
+      { command: 'invite', description: 'Пригласить друга 🎁' },
+    ], { scope: { type: 'bot_description' } });
+  }
+
+  // ===== INLINE MODE: @mentalos_bot прогресс — в любом чате =====
+  bot.on('inline_query', async (q) => {
+    const userId = q.from.id;
+    try {
+      const text = await buildProgressText(userId);
+      const result = [{
+        id: '0',
+        type: 'article',
+        title: `🧠 MentalOS — ${text.done}/${text.total} сегодня`,
+        description: 'Твой прогресс дня',
+        input_message_content: { message_text: text.text, parse_mode: 'Markdown' },
+        reply_markup: webappUrl ? { inline_keyboard: [[{ text: '🧠 Открыть MentalOS', web_app: { url: webappUrl } }]] } : undefined,
+      }];
+      bot.answerInlineQuery(q.id, result, { cache_time: 30 });
+    } catch {
+      bot.answerInlineQuery(q.id, []);
+    }
+  });
 
   // /start [referralCode]
   bot.onText(/^\/start(?:\s+(\S+))?/, (msg, match) => {
@@ -141,6 +194,20 @@ export function initBot() {
       bot.answerCallbackQuery(q.id, { text: 'Обновлено ✓' });
     } catch (e) {
       bot.answerCallbackQuery(q.id, { text: 'Уже актуально' });
+    }
+  });
+
+  // /recap — недельный отчёт
+  bot.onText(/^\/recap/, async (msg) => {
+    const userId = msg.from.id;
+    try {
+      const r = await buildRecapText(userId);
+      bot.sendMessage(msg.chat.id, r, {
+        parse_mode: 'Markdown',
+        reply_markup: webappUrl ? { inline_keyboard: [[{ text: '🧠 Открыть MentalOS', web_app: { url: webappUrl } }]] } : {},
+      });
+    } catch {
+      bot.sendMessage(msg.chat.id, 'Не удалось построить отчёт.');
     }
   });
 
