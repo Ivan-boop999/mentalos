@@ -1199,3 +1199,16 @@ select:focus-visible {
     transition-duration: 0.01ms !important;
   }
 }
+
+/* ============================================================
+   Companion v2 + Habit Tree v2 — премиум стили
+   ============================================================ */
+
+.companion-xp-text { font-size: var(--text-caption); color: var(--text-muted); font-weight: var(--fw-medium); }
+
+/* Habit Tree v2 */
+.tree-stage-desc { font-size: var(--text-footnote); color: var(--text-muted); margin-top: var(--space-1); }
+.tree-health-bar { height: 8px; background: var(--day-dot-empty); border-radius: var(--radius-full); overflow: hidden; margin: var(--space-3) auto var(--space-1); max-width: 200px; }
+.tree-health-fill { height: 100%; background: linear-gradient(90deg, #34D399, #10B981); border-radius: var(--radius-full); transition: width 0.8s var(--ease-smooth); }
+.tree-health-text { font-size: var(--text-caption); color: var(--text-muted); font-weight: var(--fw-semibold); }
+.tree-leaf-streak { font-size: var(--text-caption); color: var(--warning); font-weight: var(--fw-bold); margin-right: var(--space-2); }
