@@ -16,6 +16,7 @@ import ChallengesPage from './pages/Challenges.jsx';
 import MorePage from './pages/More.jsx';
 import LeaderboardPage from './pages/Leaderboard.jsx';
 import ArchivePage from './pages/Archive.jsx';
+import BuddiesPage from './pages/Buddies.jsx';
 import DailyBrief from './pages/DailyBrief.jsx';
 import AddHabitModal from './components/AddHabitModal.jsx';
 import AchievementToast from './components/AchievementToast.jsx';
@@ -215,6 +216,7 @@ export default function App() {
             {page === 'achievements' && '🏆 Достижения'}
             {page === 'leaderboard' && '👑 Топ'}
             {page === 'archive' && '🗄️ Архив'}
+            {page === 'buddies' && '🤝 Бадди'}
           </h1>
           {settings?.level > 0 && (
             <div className="level-badge">Lv {settings.level}</div>
@@ -246,6 +248,7 @@ export default function App() {
           {page === 'achievements' && <AchievementsPage />}
           {page === 'leaderboard' && <LeaderboardPage settings={settings} onChange={loadSettings} />}
           {page === 'archive' && <ArchivePage />}
+          {page === 'buddies' && <BuddiesPage />}
         </main>
 
         {page === 'home' && <button className="fab" onClick={openCreate} aria-label="Добавить">+</button>}

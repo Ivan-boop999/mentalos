@@ -1,7 +1,8 @@
-import { Settings as SettingsIcon, BookOpen, Trophy, ChevronRight, Crown, Archive as ArchiveIcon } from 'lucide-react';
+import { Settings as SettingsIcon, BookOpen, Trophy, ChevronRight, Crown, Archive as ArchiveIcon, Users } from 'lucide-react';
 
 export default function MorePage({ onNavigate }) {
   const items = [
+    { key: 'buddies', title: 'Бадди', desc: 'Друзья для взаимной поддержки', Icon: Users, color: '#EC4899' },
     { key: 'leaderboard', title: 'Топ игроков', desc: 'Сравни прогресс с друзьями', Icon: Crown, color: '#F59E0B' },
     { key: 'settings', title: 'Настройки', desc: 'Тема, профиль, экспорт, часовой пояс', Icon: SettingsIcon, color: '#7C3AED' },
     { key: 'achievements', title: 'Достижения', desc: 'Награды за серии и активность', Icon: Trophy, color: '#10B981' },

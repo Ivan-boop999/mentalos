@@ -683,6 +683,57 @@ input, textarea { font-family: inherit; }
 .brief-quote p { margin: 0 0 6px; font-size: 14px; font-style: italic; font-weight: 600; }
 .brief-quote span { font-size: 12px; color: var(--text-muted); }
 
+/* ===== Companion (живой персонаж) ===== */
+.companion-card {
+  display: flex; align-items: center; gap: 14px;
+  border-radius: var(--radius-md);
+  padding: 14px 16px;
+  margin-bottom: 16px;
+  cursor: pointer;
+  transition: transform 0.2s ease;
+}
+.companion-card:active { transform: scale(0.98); }
+.companion-creature {
+  position: relative; flex-shrink: 0;
+  transition: transform 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+.companion-bob { animation: companionBob 3s ease-in-out infinite; transform-origin: center; }
+@keyframes companionBob {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-3px); }
+}
+.companion-pulse { animation: companionPulse 2.5s ease-in-out infinite; transform-origin: center; }
+@keyframes companionPulse {
+  0%, 100% { opacity: 0.15; transform: scale(1); }
+  50% { opacity: 0.25; transform: scale(1.1); }
+}
+.companion-flame { animation: flameFlicker 0.6s ease-in-out infinite alternate; transform-origin: bottom; }
+@keyframes flameFlicker { from { transform: scaleY(1); } to { transform: scaleY(1.15) scaleX(0.95); } }
+.companion-info { flex: 1; min-width: 0; }
+.companion-name-row { display: flex; align-items: center; justify-content: space-between; margin-bottom: 2px; }
+.companion-name-row strong { font-size: 16px; font-weight: 700; }
+.companion-mood { font-size: 13px; font-weight: 600; color: var(--text-muted); }
+.companion-level { font-size: 12px; color: var(--text-muted); margin-bottom: 6px; font-weight: 600; }
+.companion-xp-bar { height: 6px; background: var(--day-dot-empty); border-radius: 999px; overflow: hidden; margin-bottom: 4px; }
+.companion-xp-fill { height: 100%; background: var(--gradient-main); border-radius: 999px; transition: width 0.6s ease; }
+
+/* ===== Buddies ===== */
+.buddies-hero { border-radius: var(--radius-lg); padding: 24px; text-align: center; margin-bottom: 16px; }
+.buddies-hero h2 { margin: 8px 0 6px; font-size: 22px; font-weight: 800; }
+.buddies-hero p { margin: 0; font-size: 13px; color: var(--text-muted); line-height: 1.5; }
+.buddy-invite-form { display: flex; gap: 8px; padding: 12px; border-radius: var(--radius-md); margin-bottom: 16px; }
+.buddy-invite-form .input { flex: 1; }
+.buddy-invite-form .primary-btn { flex-shrink: 0; padding: 14px 16px; }
+.buddies-list { display: flex; flex-direction: column; gap: 8px; }
+.buddy-row { display: flex; align-items: center; gap: 12px; padding: 14px; border-radius: var(--radius-md); }
+.buddy-avatar { width: 44px; height: 44px; border-radius: 50%; color: #fff; display: flex; align-items: center; justify-content: center; font-weight: 800; font-size: 18px; flex-shrink: 0; }
+.buddy-info { flex: 1; display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.buddy-info strong { font-size: 14px; }
+.buddy-progress { height: 5px; background: var(--day-dot-empty); border-radius: 999px; overflow: hidden; margin-top: 4px; }
+.buddy-progress-fill { height: 100%; background: var(--gradient-main); border-radius: 999px; transition: width 0.5s ease; }
+.buddy-stats { text-align: center; flex-shrink: 0; }
+.buddy-today { font-size: 18px; font-weight: 800; color: var(--accent); }
+
 /* ===== Settings ===== */
 .settings-section { margin-bottom: 24px; }
 .theme-options { display: flex; flex-direction: column; gap: 10px; }

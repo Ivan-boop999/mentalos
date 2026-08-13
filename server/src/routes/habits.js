@@ -1,5 +1,6 @@
 import { Router } from 'express';
 import pool from '../db/pool.js';
+import { rewardCompanion } from './companion.js';
 
 const router = Router();
 
@@ -288,6 +289,10 @@ router.post('/:id/log', async (req, res) => {
     let bonusEarned = 0;
     let xpEarned = 0;
     let leveledUp = null;
+    if (finalStatus === 'skip' || finalStatus === 'partial') {
+      // Пропуск/частично — компаньон грустит
+      await rewardCompanion(userId, false);
+    }
     if (finalStatus === 'done') {
       bonusEarned = 1;
       xpEarned = 10;
@@ -295,6 +300,8 @@ router.post('/:id/log', async (req, res) => {
       const levelBefore = before[0]?.level || 1;
       await pool.query(`UPDATE users SET bonus_balance = bonus_balance + 1, xp = xp + 10, total_checkins = total_checkins + 1 WHERE id = $1`, [userId]);
       await pool.query(`INSERT INTO bonus_transactions (user_id, amount, reason) VALUES ($1, 1, 'habit_checkin')`, [userId]);
+      // Награждаем компаньона (Tamagotchi-эффект)
+      await rewardCompanion(userId, true);
       const newLevel = await updateLevel(userId);
       if (newLevel > levelBefore) {
         leveledUp = { from: levelBefore, to: newLevel };

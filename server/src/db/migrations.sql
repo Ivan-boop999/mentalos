@@ -135,6 +135,16 @@ CREATE TABLE IF NOT EXISTS habit_subtasks (
     created_at      TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
+-- Бадди (партнёры по ответственности)
+CREATE TABLE IF NOT EXISTS buddies (
+    id              SERIAL PRIMARY KEY,
+    user_id         BIGINT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    buddy_id        BIGINT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    status          TEXT NOT NULL DEFAULT 'pending', -- pending | accepted | declined
+    created_at      TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    UNIQUE (user_id, buddy_id)
+);
+
 -- ===== ДОБАВЛЯЕМ КОЛОНКИ (идемпотентно) =====
 DO $$ BEGIN ALTER TABLE users ADD COLUMN timezone TEXT NOT NULL DEFAULT 'UTC';              EXCEPTION WHEN duplicate_column THEN NULL; END $$;
 DO $$ BEGIN ALTER TABLE users ADD COLUMN bonus_balance INTEGER NOT NULL DEFAULT 0;          EXCEPTION WHEN duplicate_column THEN NULL; END $$;
@@ -147,6 +157,10 @@ DO $$ BEGIN ALTER TABLE users ADD COLUMN active_theme TEXT NOT NULL DEFAULT 'def
 DO $$ BEGIN ALTER TABLE users ADD COLUMN owned_themes JSONB NOT NULL DEFAULT '[]'::jsonb;   EXCEPTION WHEN duplicate_column THEN NULL; END $$;
 DO $$ BEGIN ALTER TABLE users ADD COLUMN total_checkins INTEGER NOT NULL DEFAULT 0;         EXCEPTION WHEN duplicate_column THEN NULL; END $$;
 DO $$ BEGIN ALTER TABLE users ADD COLUMN public_profile BOOLEAN NOT NULL DEFAULT FALSE;     EXCEPTION WHEN duplicate_column THEN NULL; END $$;
+DO $$ BEGIN ALTER TABLE users ADD COLUMN companion_name TEXT NOT NULL DEFAULT 'Спарк';       EXCEPTION WHEN duplicate_column THEN NULL; END $$;
+DO $$ BEGIN ALTER TABLE users ADD COLUMN companion_type TEXT NOT NULL DEFAULT 'spark';      EXCEPTION WHEN duplicate_column THEN NULL; END $$; -- spark|leaf|drop|flame
+DO $$ BEGIN ALTER TABLE users ADD COLUMN companion_xp INTEGER NOT NULL DEFAULT 0;            EXCEPTION WHEN duplicate_column THEN NULL; END $$;
+DO $$ BEGIN ALTER TABLE users ADD COLUMN companion_mood INTEGER NOT NULL DEFAULT 50;         EXCEPTION WHEN duplicate_column THEN NULL; END $$; -- 0-100
 
 DO $$ BEGIN ALTER TABLE habits ADD COLUMN category_id INTEGER REFERENCES categories(id) ON DELETE SET NULL; EXCEPTION WHEN duplicate_column THEN NULL; END $$;
 DO $$ BEGIN ALTER TABLE habits ADD COLUMN best_streak INTEGER NOT NULL DEFAULT 0;     EXCEPTION WHEN duplicate_column THEN NULL; END $$;
@@ -199,6 +213,8 @@ CREATE INDEX IF NOT EXISTS idx_moods_user_date ON moods(user_id, log_date);
 CREATE INDEX IF NOT EXISTS idx_journal_user ON journal_entries(user_id);
 CREATE INDEX IF NOT EXISTS idx_uc_user ON user_challenges(user_id);
 CREATE INDEX IF NOT EXISTS idx_subtasks_habit ON habit_subtasks(habit_id);
+CREATE INDEX IF NOT EXISTS idx_buddies_user ON buddies(user_id);
+CREATE INDEX IF NOT EXISTS idx_buddies_buddy ON buddies(buddy_id);
 CREATE UNIQUE INDEX IF NOT EXISTS uq_referral_code ON users(referral_code);
 
 -- ===== Seed HABIT TEMPLATES (для библиотеки) =====

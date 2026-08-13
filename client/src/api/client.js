@@ -78,6 +78,15 @@ export const api = {
   getLeaderboard: () => request('/api/leaderboard'),
   setPublicProfile: (pub) => request('/api/leaderboard/visibility', { method: 'PUT', body: JSON.stringify({ public: pub }) }),
 
+  // Companion (живой персонаж)
+  getCompanion: () => request('/api/companion'),
+  updateCompanion: (data) => request('/api/companion', { method: 'PUT', body: JSON.stringify(data) }),
+
+  // Buddies (бадди-механика)
+  getBuddies: () => request('/api/buddies'),
+  inviteBuddy: (code) => request('/api/buddies/invite', { method: 'POST', body: JSON.stringify({ code }) }),
+  removeBuddy: (id) => request(`/api/buddies/${id}`, { method: 'DELETE' }),
+
   // Export
   exportData: () => '/api/export',
   exportCsvUrl: () => '/api/export/csv',

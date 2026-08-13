@@ -18,6 +18,8 @@ import moodRouter from './routes/mood.js';
 import journalRouter from './routes/journal.js';
 import challengesRouter from './routes/challenges.js';
 import leaderboardRouter from './routes/leaderboard.js';
+import companionRouter from './routes/companion.js';
+import buddiesRouter from './routes/buddies.js';
 import exportRouter from './routes/export.js';
 import { initBot } from './bot/index.js';
 
@@ -67,6 +69,8 @@ app.use('/api/mood', authMiddleware, moodRouter);
 app.use('/api/journal', authMiddleware, journalRouter);
 app.use('/api/challenges', authMiddleware, challengesRouter);
 app.use('/api/leaderboard', authMiddleware, leaderboardRouter);
+app.use('/api/companion', authMiddleware, companionRouter);
+app.use('/api/buddies', authMiddleware, buddiesRouter);
 app.use('/api/export', authMiddleware, exportRouter);
 
 // ===== Отдаём собранный фронтенд (статика) =====

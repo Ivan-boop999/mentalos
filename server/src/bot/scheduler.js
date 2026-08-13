@@ -86,4 +86,74 @@ export function startScheduler(bot) {
   });
 
   console.log('⏰ Scheduler запущен (Intl + TZ-aware).');
+
+  // ===== Buddy-уведомления: раз в день проверяем кто выполнил всё, шлём бадди =====
+  cron.schedule('30 * * * *', async () => {
+    try {
+      // Пользователи, которые ВЫПОЛНИЛИ все привычки сегодня (за последний час)
+      const { rows: finishers } = await pool.query(
+        `SELECT u.id, u.first_name, u.username
+         FROM users u
+         WHERE EXISTS (
+           SELECT 1 FROM habits h
+           WHERE h.user_id = u.id AND h.archived = FALSE
+           AND NOT EXISTS (
+             SELECT 1 FROM habit_logs l
+             WHERE l.habit_id = h.id AND l.user_id = u.id AND l.log_date = CURRENT_DATE AND l.status = 'done'
+           )
+         ) = FALSE
+         AND EXISTS (SELECT 1 FROM habits WHERE user_id = u.id AND archived = FALSE)
+         AND NOT EXISTS (
+           SELECT 1 FROM buddy_notified bn WHERE bn.user_id = u.id AND bn.date = CURRENT_DATE
+         )`,
+      );
+
+      for (const f of finishers) {
+        // Находим их бадди, которые ЕЩЁ не выполнили всё
+        const { rows: buddies } = await pool.query(
+          `SELECT b.buddy_id FROM buddies b
+           WHERE b.user_id = $1 AND b.status = 'accepted'
+           AND EXISTS (
+             SELECT 1 FROM habits h
+             WHERE h.user_id = b.buddy_id AND h.archived = FALSE
+             AND NOT EXISTS (
+               SELECT 1 FROM habit_logs l WHERE l.habit_id = h.id AND l.user_id = b.buddy_id AND l.log_date = CURRENT_DATE AND l.status = 'done'
+             )
+           )`,
+          [f.id],
+        );
+
+        for (const b of buddies) {
+          const friendName = f.first_name || f.username || 'твой друг';
+          try {
+            await bot.sendMessage(
+              b.buddy_id,
+              `🔥 *${friendName}* выполнил все привычки сегодня!\n\nТвоя очередь — не отставай 💪`,
+              {
+                parse_mode: 'Markdown',
+                reply_markup: process.env.WEBAPP_URL
+                  ? { reply_markup: { inline_keyboard: [[{ text: '🧠 Открыть MentalOS', web_app: { url: process.env.WEBAPP_URL } }]] } }
+                  : {},
+              },
+            );
+          } catch (e) { /* юзер мог заблокировать бота */ }
+        }
+
+        // Отмечаем что уведомили
+        await pool.query(
+          `INSERT INTO buddy_notified (user_id, date) VALUES ($1, CURRENT_DATE) ON CONFLICT DO NOTHING`,
+          [f.id],
+        );
+      }
+    } catch (err) {
+      // Таблицы buddy_notified может не быть — создаём на лету
+      if (err.message.includes('buddy_notified')) {
+        try {
+          await pool.query(`CREATE TABLE IF NOT EXISTS buddy_notified (user_id BIGINT, date DATE, PRIMARY KEY (user_id, date))`);
+        } catch {}
+      } else {
+        console.error('Buddy scheduler error:', err.message);
+      }
+    }
+  });
 }
