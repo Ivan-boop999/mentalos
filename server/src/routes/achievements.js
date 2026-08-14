@@ -72,14 +72,14 @@ function calcStreak(logDates, frequency) {
   const set = new Set(logDates);
   const days = frequency?.type === 'weekly' ? frequency.days : null;
   let streak = 0;
-  const cursor = new Date();
-  cursor.setHours(0, 0, 0, 0);
+  let cursor = new Date();
+  cursor = new Date(new Date().toISOString().slice(0, 10) + 'T00:00:00Z'); // UTC-якорь
   for (let i = 0; i < 365; i++) {
     const iso = cursor.toISOString().slice(0, 10);
-    const expected = !days || days.includes(cursor.getDay());
+    const expected = !days || days.includes(cursor.getUTCDay());
     if (set.has(iso)) streak++;
     else if (expected && i > 0) break;
-    cursor.setDate(cursor.getDate() - 1);
+    cursor.setUTCDate(cursor.getUTCDate() - 1);
   }
   return streak;
 }

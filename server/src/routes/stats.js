@@ -32,15 +32,14 @@ router.get('/', async (req, res) => {
     }
 
     const perDay = [];
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
+    const today = new Date(new Date().toISOString().slice(0, 10) + 'T00:00:00Z'); // UTC-якорь
     let totalDone = 0, totalExpected = 0, perfectDays = 0, currentPerfectStreak = 0;
 
     for (let i = days - 1; i >= 0; i--) {
       const d = new Date(today);
-      d.setDate(d.getDate() - i);
+      d.setUTCDate(d.getUTCDate() - i);
       const iso = d.toISOString().slice(0, 10);
-      const dow = d.getDay();
+      const dow = d.getUTCDay();
 
       const expected = habits.filter((h) => {
         const freq = typeof h.frequency === 'string' ? JSON.parse(h.frequency) : h.frequency;
@@ -73,9 +72,9 @@ router.get('/', async (req, res) => {
       let expected = 0, done = 0;
       for (let i = days - 1; i >= 0; i--) {
         const d = new Date(today);
-        d.setDate(d.getDate() - i);
+        d.setUTCDate(d.getUTCDate() - i);
         const iso = d.toISOString().slice(0, 10);
-        if (!freq?.days || freq.days.includes(d.getDay())) {
+        if (!freq?.days || freq.days.includes(d.getUTCDay())) {
           expected++;
           if (logSet.has(iso)) done++;
         }
@@ -125,14 +124,14 @@ function calcStreak(logDates, frequency) {
   const set = new Set(logDates);
   const days = frequency?.type === 'weekly' ? frequency.days : null;
   let streak = 0;
-  const cursor = new Date();
+  const cursor = new Date(new Date().toISOString().slice(0, 10) + 'T00:00:00Z'); // UTC-якорь
   cursor.setHours(0, 0, 0, 0);
   for (let i = 0; i < 365; i++) {
     const iso = cursor.toISOString().slice(0, 10);
-    const expected = !days || days.includes(cursor.getDay());
+    const expected = !days || days.includes(cursor.getUTCDay());
     if (set.has(iso)) streak++;
     else if (expected && i > 0) break;
-    cursor.setDate(cursor.getDate() - 1);
+    cursor.setUTCDate(cursor.getUTCDate() - 1);
   }
   return streak;
 }

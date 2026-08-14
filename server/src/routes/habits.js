@@ -205,10 +205,10 @@ router.get('/:id/strength', async (req, res) => {
     // Expected даты за период
     const days = freq?.type === 'weekly' ? freq.days : null;
     const expectedDates = new Set();
-    const today = new Date(); today.setHours(0, 0, 0, 0);
+    const today = new Date(new Date().toISOString().slice(0, 10) + 'T00:00:00Z'); // UTC-якорь
     for (let i = 0; i < 365; i++) {
-      const d = new Date(today); d.setDate(d.getDate() - i);
-      if (!days || days.includes(d.getDay())) expectedDates.add(d.toISOString().slice(0, 10));
+      const d = new Date(today); d.setUTCDate(d.getUTCDate() - i);
+      if (!days || days.includes(d.getUTCDay())) expectedDates.add(d.toISOString().slice(0, 10));
     }
 
     // Strength score (0-100): взвешенная сумма выполнений с экспоненциальным затуханием
@@ -218,7 +218,7 @@ router.get('/:id/strength', async (req, res) => {
     let totalWeight = 0;
     let dayIdx = 0;
     for (let i = 0; i < 365; i++) {
-      const d = new Date(today); d.setDate(d.getDate() - i);
+      const d = new Date(today); d.setUTCDate(d.getUTCDate() - i);
       const iso = d.toISOString().slice(0, 10);
       if (!expectedDates.has(iso)) continue;
       const weight = Math.pow(0.99, dayIdx);
@@ -497,7 +497,7 @@ async function updateLevel(userId) {
 }
 
 function calcStreak(logs, frequency, comebackShield = false) {
-  // logs: [{date, status, value}]
+  // logs: [{date, status, value}] — даты в UTC (как пишет /log)
   if (!logs.length) return 0;
   const doneSet = new Set(logs.filter((l) => l.status === 'done').map((l) => l.date));
   const skipSet = new Set(logs.filter((l) => l.status === 'skip').map((l) => l.date));
@@ -505,24 +505,22 @@ function calcStreak(logs, frequency, comebackShield = false) {
 
   let streak = 0;
   let shieldsUsed = 0;
-  const cursor = new Date();
-  cursor.setHours(0, 0, 0, 0);
+  // ТАЙМЗОН-ФИКС: якорь на UTC-полночь сегодняшней UTC-даты
+  const cursor = new Date(new Date().toISOString().slice(0, 10) + 'T00:00:00Z');
   for (let i = 0; i < 365; i++) {
     const iso = cursor.toISOString().slice(0, 10);
-    const expected = !days || days.includes(cursor.getDay());
-    if (!expected) { cursor.setDate(cursor.getDate() - 1); continue; }
+    const expected = !days || days.includes(cursor.getUTCDay());
+    if (!expected) { cursor.setUTCDate(cursor.getUTCDate() - 1); continue; }
     if (doneSet.has(iso)) streak++;
     else if (skipSet.has(iso)) { /* skip не прерывает и не увеличивает */ }
     else if (i > 0) {
-      // Comeback shield: 1 пропуск в неделю не рвёт стрик
       if (comebackShield && shieldsUsed < 1) {
         shieldsUsed++;
-        // продолжаем, не инкрементируем
       } else {
         break;
       }
     }
-    cursor.setDate(cursor.getDate() - 1);
+    cursor.setUTCDate(cursor.getUTCDate() - 1);
   }
   return streak;
 }

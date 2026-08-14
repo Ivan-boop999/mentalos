@@ -12,33 +12,35 @@ const MISSION_TEMPLATES = [
   { code: 'streak_day', title: '🔥 Не прерывай', desc: 'Сохрани все стрики сегодня', target: 1, reward: 20 },
 ];
 
+/** Генерирует миссии дня, если их ещё нет. Вызывается и из GET, и из update. */
+async function ensureTodaysMissions(userId) {
+  const { rows: existing } = await pool.query(
+    `SELECT 1 FROM missions WHERE user_id = $1 AND mission_date = CURRENT_DATE LIMIT 1`,
+    [userId],
+  );
+  if (existing.length) return;
+  const dayOfYear = Math.floor((Date.now() - new Date(new Date().getFullYear(), 0, 0)) / 86400000);
+  const idx1 = dayOfYear % MISSION_TEMPLATES.length;
+  const idx2 = (dayOfYear + 3) % MISSION_TEMPLATES.length;
+  for (const tpl of [MISSION_TEMPLATES[idx1], MISSION_TEMPLATES[idx2]]) {
+    await pool.query(
+      `INSERT INTO missions (user_id, code, title, description, target, reward) VALUES ($1, $2, $3, $4, $5, $6)
+       ON CONFLICT (user_id, code, mission_date) DO NOTHING`,
+      [userId, tpl.code, tpl.title, tpl.desc, tpl.target, tpl.reward],
+    );
+  }
+}
+
 /** GET /api/missions — миссия дня (генерируется раз в день) */
 router.get('/', async (req, res) => {
   const userId = req.userId;
   try {
-    // Проверяем есть ли миссия на сегодня
-    const { rows: existing } = await pool.query(
+    await ensureTodaysMissions(userId);
+    const { rows } = await pool.query(
       `SELECT id, code, title, description, target, progress, reward, completed FROM missions WHERE user_id = $1 AND mission_date = CURRENT_DATE`,
       [userId],
     );
-
-    if (!existing.length) {
-      // Генерируем 2 случайные миссии на день (детерминированно по дню года)
-      const dayOfYear = Math.floor((Date.now() - new Date(new Date().getFullYear(), 0, 0)) / 86400000);
-      const idx1 = dayOfYear % MISSION_TEMPLATES.length;
-      const idx2 = (dayOfYear + 3) % MISSION_TEMPLATES.length;
-      for (const tpl of [MISSION_TEMPLATES[idx1], MISSION_TEMPLATES[idx2]]) {
-        await pool.query(
-          `INSERT INTO missions (user_id, code, title, description, target, reward) VALUES ($1, $2, $3, $4, $5, $6)
-           ON CONFLICT (user_id, code, mission_date) DO NOTHING`,
-          [userId, tpl.code, tpl.title, tpl.desc, tpl.target, tpl.reward],
-        );
-      }
-      const { rows: fresh } = await pool.query(`SELECT id, code, title, description, target, progress, reward, completed FROM missions WHERE user_id = $1 AND mission_date = CURRENT_DATE`, [userId]);
-      return res.json(fresh);
-    }
-
-    res.json(existing);
+    res.json(rows);
   } catch (err) {
     console.error('GET missions:', err);
     res.status(500).json({ error: 'Ошибка сервера' });
@@ -51,6 +53,8 @@ router.get('/', async (req, res) => {
 export async function updateMissionsOnAction(userId, action) {
   // action: { type: 'checkin'|'mood'|'note', timeOfDay?: 'morning' }
   try {
+    // ФИКС: чекин раньше открытия экрана миссий — генерируем на лету
+    await ensureTodaysMissions(userId);
     const { rows: missions } = await pool.query(
       `SELECT id, code, target, progress, completed, reward FROM missions WHERE user_id = $1 AND mission_date = CURRENT_DATE AND completed = FALSE`,
       [userId],

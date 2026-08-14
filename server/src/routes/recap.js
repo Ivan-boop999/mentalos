@@ -51,7 +51,7 @@ router.get('/', async (req, res) => {
 
     let perfectDays = 0;
     for (const [dateStr, doneCount] of Object.entries(logsByDate)) {
-      const dow = new Date(dateStr + 'T00:00:00').getDay();
+      const dow = new Date(dateStr + 'T00:00:00Z').getUTCDay(); // UTC-день
       const expected = freqRows.filter((h) => {
         const f = freqMap[h.id];
         return !f?.days || f.days.includes(dow);

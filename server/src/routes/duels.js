@@ -145,7 +145,8 @@ router.post('/:id/finish', async (req, res) => {
     const { rows: d } = await pool.query(`SELECT * FROM duels WHERE id = $1 AND status = 'active'`, [duelId]);
     if (!d.length) return res.status(404).json({ error: 'Дуэль не найдена' });
     const duel = d[0];
-    if (duel.challenger_id !== userId && duel.opponent_id !== userId) return res.status(403).json({ error: 'Не участник' });
+    // ФИКС: pg BIGINT приходит строкой — сравниваем через Number()
+    if (Number(duel.challenger_id) !== userId && Number(duel.opponent_id) !== userId) return res.status(403).json({ error: 'Не участник' });
 
     const { rows: my } = await pool.query(`SELECT COALESCE(MAX(best_streak), 0) AS s FROM habits WHERE user_id = $1 AND archived = FALSE`, [duel.challenger_id]);
     const { rows: opp } = await pool.query(`SELECT COALESCE(MAX(best_streak), 0) AS s FROM habits WHERE user_id = $1 AND archived = FALSE`, [duel.opponent_id]);

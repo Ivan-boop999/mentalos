@@ -52,15 +52,16 @@ router.post('/invite', async (req, res) => {
   try {
     let buddyId = null;
     const clean = code.trim().replace(/^@/, '').replace(/^MOS/i, '');
+    // ФИКС: pg возвращает BIGINT строкой — нормализуем в Number для сравнения с req.userId
     const { rows: byCode } = await pool.query(`SELECT id FROM users WHERE referral_code = $1`, ['MOS' + clean.replace(/^MOS/, '')]);
-    if (byCode.length) buddyId = byCode[0].id;
+    if (byCode.length) buddyId = Number(byCode[0].id);
     if (!buddyId) {
       const { rows: byId } = await pool.query(`SELECT id FROM users WHERE id::text = $1`, [clean]);
-      if (byId.length) buddyId = byId[0].id;
+      if (byId.length) buddyId = Number(byId[0].id);
     }
     if (!buddyId) {
       const { rows: byName } = await pool.query(`SELECT id FROM users WHERE LOWER(username) = LOWER($1)`, [clean]);
-      if (byName.length) buddyId = byName[0].id;
+      if (byName.length) buddyId = Number(byName[0].id);
     }
     if (!buddyId) return res.status(404).json({ error: 'Пользователь не найден. Пусть друг сначала откроет MentalOS.' });
     if (buddyId === userId) return res.status(400).json({ error: 'Нельзя пригласить себя' });
