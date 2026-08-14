@@ -42,10 +42,13 @@ router.get('/', async (req, res) => {
     for (const n of notes) (notesByHabit[n.habit_id] ||= {})[n.date] = n.note;
 
     const todayIso = new Date().toISOString().slice(0, 10);
+    // N6 FIX: user_insurance для синхронного расчёта стрика с GET и POST /log
+    const { rows: uInfo } = await pool.query(`SELECT streak_insurance FROM users WHERE id = $1`, [userId]);
+    const userInsurance = uInfo[0]?.streak_insurance || false;
     const result = habits.map((h) => {
       const freq = typeof h.frequency === 'string' ? JSON.parse(h.frequency) : h.frequency;
       const hLogs = logsByHabit[h.id] || [];
-      const streak = calcStreak(hLogs, freq, h.comeback_shield);
+      const streak = calcStreak(hLogs, freq, h.comeback_shield || userInsurance);
       const todayLog = hLogs.find((l) => l.date === todayIso);
       return {
         ...h,
@@ -316,13 +319,16 @@ router.post('/:id/log', async (req, res) => {
     );
 
     // P0-2 FIX: передаём comeback_shield ИЛИ streak_insurance
-    const streak = calcStreak(logRows, freq, hRows[0].comeback_shield || hasInsurance);
+    const streakWithShield = calcStreak(logRows, freq, true);
+    const streakNoShield = calcStreak(logRows, freq, false);
+    const streak = hasInsurance ? Math.max(streakWithShield, streakNoShield) : streakWithShield;
     if (streak > (hRows[0].best_streak || 0)) {
       await pool.query(`UPDATE habits SET best_streak = $1 WHERE id = $2 AND user_id = $3`, [streak, habitId, userId]);
     }
 
-    // P0-2 FIX: если страховка сработала (был пропуск, но стрик не порвался) — списываем
-    if (hasInsurance) {
+    // N4 FIX: страховка сгорает ТОЛЬКО когда реально спасла стрик
+    // (с щитом стрик длиннее, чем без — значит был пропущенный день)
+    if (hasInsurance && streakWithShield > streakNoShield) {
       await pool.query(`UPDATE users SET streak_insurance = FALSE WHERE id = $1`, [userId]);
     }
 
@@ -465,7 +471,7 @@ async function checkAchievements(userId, habitId, streak) {
       );
       if (rows[0] && Date.now() - new Date(rows[0].unlocked_at).getTime() < 5000) {
         await pool.query(`UPDATE users SET bonus_balance = bonus_balance + $1, xp = xp + $2 WHERE id = $3`, [t.bonus, t.xp, userId]);
-        await pool.query(`INSERT INTO bonus_transactions (user_id, amount, reason) VALUES ($1, $2, $3)`, [t.bonus, `achievement:${t.code}`, userId]);
+        await pool.query(`INSERT INTO bonus_transactions (user_id, amount, reason) VALUES ($1, $2, $3)`, [userId, t.bonus, `achievement:${t.code}`]);
         await updateLevel(userId);
         unlocked.push({ ...t, habitId });
       }

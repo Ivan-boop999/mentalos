@@ -16,6 +16,7 @@ export default function Companion() {
   const [data, setData] = useState(null);
   const [blink, setBlink] = useState(false);
   const [pet, setPet] = useState(false);
+  const petTimer = useRef(null);
 
   const load = () => api.getCompanion().then(setData).catch(() => {});
   useEffect(() => { load(); }, []);
@@ -31,6 +32,14 @@ export default function Companion() {
     return () => { clearInterval(interval); if (blinkTimer) clearTimeout(blinkTimer); };
   }, [data]);
 
+  // ХУКИ — строго до раннего return (Rules of Hooks)
+  const handlePet = () => {
+    setPet(true);
+    if (petTimer.current) clearTimeout(petTimer.current);
+    petTimer.current = setTimeout(() => setPet(false), 350);
+  };
+  useEffect(() => () => { if (petTimer.current) clearTimeout(petTimer.current); }, []);
+
   if (!data) return null;
 
   const colors = TYPE_COLORS[data.type] || TYPE_COLORS.spark;
@@ -38,13 +47,6 @@ export default function Companion() {
   const moodLabel = data.mood >= 70 ? 'Счастлив' : data.mood >= 40 ? 'Норм' : 'Скучает';
   const xpProgress = Math.round(((data.xp - data.xpForThis) / (data.xpToNext - data.xpForThis)) * 100);
 
-  const petTimer = useRef(null);
-  const handlePet = () => {
-    setPet(true);
-    if (petTimer.current) clearTimeout(petTimer.current);
-    petTimer.current = setTimeout(() => setPet(false), 350);
-  };
-  useEffect(() => () => { if (petTimer.current) clearTimeout(petTimer.current); }, []);
   const size = data.stage === 'egg' ? 60 : data.stage === 'baby' ? 68 : data.stage === 'teen' ? 76 : 84;
 
   return (

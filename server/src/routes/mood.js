@@ -1,5 +1,6 @@
 import { Router } from 'express';
 import pool from '../db/pool.js';
+import { updateMissionsOnAction } from './missions.js';
 
 const router = Router();
 
@@ -36,6 +37,8 @@ router.post('/', async (req, res) => {
        RETURNING id, mood, note, log_date::text AS date`,
       [userId, mood, note],
     );
+    // N6 FIX: миссия mood прогрессирует
+    updateMissionsOnAction(userId, { type: 'mood' });
     res.json(rows[0]);
   } catch (err) {
     console.error('POST mood:', err);

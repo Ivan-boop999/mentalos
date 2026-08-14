@@ -31,7 +31,7 @@ export default function MoodPage() {
   useEffect(() => { noteRef.current = note; }, [note]);
 
   const select = async (mood) => {
-    setMood(mood);
+    setToday(mood);
     try { await api.setMood(mood, noteRef.current); load(); } catch {}
   };
 
