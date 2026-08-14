@@ -23,6 +23,7 @@ import buddiesRouter from './routes/buddies.js';
 import missionsRouter from './routes/missions.js';
 import duelsRouter from './routes/duels.js';
 import recapRouter from './routes/recap.js';
+import shareRouter from './routes/share.js';
 import exportRouter from './routes/export.js';
 import { initBot } from './bot/index.js';
 
@@ -59,6 +60,9 @@ app.get('/health', (_req, res) => res.json({ ok: true, name: 'MentalOS' }));
 
 // Self-ping эндпоинт — чтобы Render не усыплял Free-сервис
 app.get('/keep-alive', (_req, res) => res.json({ ok: true, t: Date.now() }));
+
+// ===== Публичные роуты (без авторизации — Telegram скачивает сам) =====
+app.use('/api/share', shareRouter);
 
 // ===== API (всё под защитой authMiddleware) =====
 app.use('/api/habits', authMiddleware, habitsRouter);

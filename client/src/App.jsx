@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState, useCallback } from 'react';
+import { Brain, BarChart3, Target, Smile, Gift, LayoutGrid, Settings, BookOpen, Trophy, Crown, Archive, Users, Swords, TreePine, Sparkles } from 'lucide-react';
 import { useTelegram } from './hooks/useTelegram';
 import { useTimezone } from './hooks/useTimezone';
 import { useSound } from './hooks/useSound';
@@ -236,23 +237,23 @@ export default function App() {
       <div className="app">
         <header className="app-header">
           <h1 className="app-title">
-            {page === 'home' && '🧠 MentalOS'}
-            {page === 'stats' && '📊 Статистика'}
-            {page === 'challenges' && '🎯 Челленджи'}
-            {page === 'mood' && '😊 Настроение'}
-            {page === 'rewards' && '🎁 Награды'}
-            {page === 'more' && '☰ Ещё'}
-            {page === 'settings' && '⚙️ Настройки'}
-            {page === 'journal' && '📖 Дневник'}
-            {page === 'achievements' && '🏆 Достижения'}
-            {page === 'leaderboard' && '👑 Топ'}
-            {page === 'archive' && '🗄️ Архив'}
-            {page === 'buddies' && '🤝 Бадди'}
-            {page === 'missions' && '🎯 Миссии'}
-            {page === 'duels' && '⚔️ Битвы'}
-            {page === 'recap' && '📊 Отчёт'}
-            {page === 'tree' && '🌳 Дерево'}
-            {page === 'companion-shop' && '🎭 Компаньон'}
+            {page === 'home' && <><Brain size={22} strokeWidth={2.4} /> MentalOS</>}
+            {page === 'stats' && <><BarChart3 size={22} strokeWidth={2.4} /> Статистика</>}
+            {page === 'challenges' && <><Target size={22} strokeWidth={2.4} /> Челленджи</>}
+            {page === 'mood' && <><Smile size={22} strokeWidth={2.4} /> Настроение</>}
+            {page === 'rewards' && <><Gift size={22} strokeWidth={2.4} /> Награды</>}
+            {page === 'more' && <><LayoutGrid size={22} strokeWidth={2.4} /> Ещё</>}
+            {page === 'settings' && <><Settings size={22} strokeWidth={2.4} /> Настройки</>}
+            {page === 'journal' && <><BookOpen size={22} strokeWidth={2.4} /> Дневник</>}
+            {page === 'achievements' && <><Trophy size={22} strokeWidth={2.4} /> Достижения</>}
+            {page === 'leaderboard' && <><Crown size={22} strokeWidth={2.4} /> Топ</>}
+            {page === 'archive' && <><Archive size={22} strokeWidth={2.4} /> Архив</>}
+            {page === 'buddies' && <><Users size={22} strokeWidth={2.4} /> Бадди</>}
+            {page === 'missions' && <><Target size={22} strokeWidth={2.4} /> Миссии</>}
+            {page === 'duels' && <><Swords size={22} strokeWidth={2.4} /> Битвы</>}
+            {page === 'recap' && <><BarChart3 size={22} strokeWidth={2.4} /> Отчёт</>}
+            {page === 'tree' && <><TreePine size={22} strokeWidth={2.4} /> Дерево</>}
+            {page === 'companion-shop' && <><Sparkles size={22} strokeWidth={2.4} /> Компаньон</>}
           </h1>
           {settings?.level > 0 && (
             <div className="level-badge">Lv {settings.level}</div>

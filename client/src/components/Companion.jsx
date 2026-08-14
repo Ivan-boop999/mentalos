@@ -55,7 +55,7 @@ export default function Companion() {
         transform: pet ? 'scale(1.12) rotate(-3deg)' : 'scale(1)',
         transition: 'transform 0.35s cubic-bezier(0.34, 1.56, 0.64, 1)',
       }}>
-        <Creature type={data.type} stage={data.stage} blink={blink} mood={data.mood} size={size} colors={colors} />
+        <Creature type={data.type} stage={data.stage} blink={blink} mood={data.mood} size={size} colors={colors} equipped={data.equipped} />
       </div>
       <div className="companion-info">
         <div className="companion-name-row">
@@ -75,7 +75,7 @@ export default function Companion() {
 }
 
 /** Премиум SVG-существо: мягкое тело, блик, тень, плавные черты */
-function Creature({ type, stage, blink, mood, size, colors }) {
+function Creature({ type, stage, blink, mood, size, colors, equipped }) {
   const c = colors;
   const happy = mood >= 70;
   const sad = mood < 40;
@@ -201,14 +201,49 @@ function Creature({ type, stage, blink, mood, size, colors }) {
         )}
       </g>
 
-      {/* Экипировка (шапки, очки) — рисуется поверх */}
-      <EquipLayer type={type} />
+      {/* Экипировка (шапки, очки, аксессуары) — рисуется поверх */}
+      {equipped && <EquipLayer equipped={equipped} stage={stage} />}
     </svg>
   );
 }
 
-/** Слой экипировки (пока статичный, расширить из equipped данных) */
-function EquipLayer({ type }) {
-  // Заглушка — в будущем будет читать equipped из props
-  return null;
+/** Эмодзи предметов по кодам (синхронизировано с companion_items в миграции) */
+const ITEM_EMOJI = {
+  hat_crown: '👑', hat_cap: '🧢', hat_top: '🎩', hat_party: '🥳',
+  glasses_sun: '🕶️', glasses_round: '🤓', glasses_3d: '🥽',
+  acc_bow: '🎀', acc_wings: '🦋', acc_halo: '😇', acc_fire: '💫',
+};
+
+/**
+ * Слой экипировки: шапка на макушке, очки на глазах, аксессуар рядом.
+ * Эмодзи рендерятся как <text> — отлично масштабируются и не требуют отдельных SVG.
+ */
+function EquipLayer({ equipped, stage }) {
+  if (stage === 'egg') return null;
+  const hat = ITEM_EMOJI[equipped.hat];
+  const glasses = ITEM_EMOJI[equipped.glasses];
+  const acc = ITEM_EMOJI[equipped.accessory];
+
+  return (
+    <g pointerEvents="none">
+      {/* Шапка — над макушкой, с лёгким наклоном */}
+      {hat && (
+        <text x={60} y={16} fontSize={26} textAnchor="middle" transform="rotate(-12 60 16)">
+          {hat}
+        </text>
+      )}
+      {/* Очки — на уровне глаз */}
+      {glasses && (
+        <text x={60} y={58} fontSize={26} textAnchor="middle">
+          {glasses}
+        </text>
+      )}
+      {/* Аксессуар — справа от тела */}
+      {acc && (
+        <text x={96} y={80} fontSize={22} textAnchor="middle">
+          {acc}
+        </text>
+      )}
+    </g>
+  );
 }

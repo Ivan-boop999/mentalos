@@ -32,7 +32,7 @@
   --surface-0: var(--bg);                                     /* фон экрана */
   --surface-1: #FFFFFF;                                       /* карточка */
   --surface-2: #FFFFFF;                                       /* elevated (модалка) */
-  --surface-glass: rgba(255, 255, 255, 0.72);                 /* glassmorphism */
+  --surface-glass: rgba(255, 255, 255, 0.86);                 /* glassmorphism: плотнее, читаемее на светлых фонах */
 
   --card: var(--surface-1);
   --card-hover: #FAFAFE;

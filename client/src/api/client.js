@@ -86,17 +86,21 @@ export const api = {
   buyCompanionItem: (code) => request('/api/companion/buy', { method: 'POST', body: JSON.stringify({ code }) }),
   equipCompanionItem: (code, category) => request('/api/companion/equip', { method: 'POST', body: JSON.stringify({ code, category }) }),
 
-  // Buddies (бадди-механика)
+  // Buddies (бадди-механика с согласием)
   getBuddies: () => request('/api/buddies'),
   inviteBuddy: (code) => request('/api/buddies/invite', { method: 'POST', body: JSON.stringify({ code }) }),
+  acceptBuddy: (id) => request(`/api/buddies/${id}/accept`, { method: 'POST' }),
+  declineBuddy: (id) => request(`/api/buddies/${id}/decline`, { method: 'POST' }),
   removeBuddy: (id) => request(`/api/buddies/${id}`, { method: 'DELETE' }),
 
   // Missions (Mission of the Day)
   getMissions: () => request('/api/missions'),
 
-  // Duels (PvP)
+  // Duels (PvP с согласием)
   getDuels: () => request('/api/duels'),
   createDuel: (opponentId, wager) => request('/api/duels', { method: 'POST', body: JSON.stringify({ opponentId, wager }) }),
+  acceptDuel: (id) => request(`/api/duels/${id}/accept`, { method: 'POST' }),
+  declineDuel: (id) => request(`/api/duels/${id}/decline`, { method: 'POST' }),
   finishDuel: (id) => request(`/api/duels/${id}/finish`, { method: 'POST' }),
 
   // Recap (Weekly Recap)

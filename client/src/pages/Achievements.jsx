@@ -17,17 +17,25 @@ export default function AchievementsPage() {
   const shareToStory = () => {
     try {
       const wa = window.Telegram?.WebApp;
-      if (data?.totalUnlocked > 0) {
-        const text = `🧠 Я открыл ${data.totalUnlocked} достижений в MentalOS! Мой лучший стрик: ${data.bestStreak} 🔥`;
-        const botUser = import.meta.env.VITE_BOT_USERNAME || 'mentalos_bot';
-        if (wa?.openTelegramLink) {
-          wa.openTelegramLink(`https://t.me/share/url?url=${encodeURIComponent('https://t.me/' + botUser)}&text=${encodeURIComponent(text)}`);
-        } else {
-          window.open(`https://t.me/share/url?url=${encodeURIComponent('https://t.me/' + botUser)}&text=${encodeURIComponent(text)}`, '_blank');
-        }
-      } else {
-        alert('Пока нет достижений для шеринга');
+      if (!data?.totalUnlocked) return alert('Пока нет достижений для шеринга');
+
+      const base = (import.meta.env.VITE_API_URL || '').replace(/\/$/, '') || window.location.origin;
+      const mediaUrl = `${base}/api/share/story.png?streak=${data.bestStreak || 0}&ach=${encodeURIComponent(`Открыто достижений: ${data.totalUnlocked}`)}`;
+      const text = `Мой стрик в MentalOS: ${data.bestStreak} 🔥 Присоединяйся!`;
+      const botUser = import.meta.env.VITE_BOT_USERNAME || 'mentalos_bot';
+
+      // Настоящий Telegram shareToStory API (Bot API 7.8+)
+      if (typeof wa?.shareToStory === 'function') {
+        wa.shareToStory(mediaUrl, {
+          text,
+          widget_link: { url: `https://t.me/${botUser}`, name: 'MentalOS' },
+        });
+        return;
       }
+      // Фолбэк: share-ссылка
+      const link = `https://t.me/share/url?url=${encodeURIComponent(`https://t.me/${botUser}`)}&text=${encodeURIComponent(text)}`;
+      if (wa?.openTelegramLink) wa.openTelegramLink(link);
+      else window.open(link, '_blank');
     } catch (e) {
       console.error('share error:', e);
     }

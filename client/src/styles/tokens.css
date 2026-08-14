@@ -41,6 +41,13 @@
   --text-h1: 28px;         /* крупный заголовок */
   --text-largetitle: 34px; /* онбординг, hero */
 
+  /* Display-шкала для крупных цифр/эмодзи (значки, hero, тосты) */
+  --text-display-1: 32px;
+  --text-display-2: 40px;
+  --text-display-3: 48px;
+  --text-display-4: 64px;
+  --text-display-5: 80px;
+
   --leading-tight: 1.2;
   --leading-snug: 1.35;
   --leading-normal: 1.45;

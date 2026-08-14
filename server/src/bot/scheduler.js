@@ -1,6 +1,7 @@
 import cron from 'node-cron';
 import pool from '../db/pool.js';
 import { decayCompanionMood } from '../routes/companion.js';
+import { autoCompleteDuels } from '../routes/duels.js';
 
 /**
  * Планировщик напоминаний MentalOS.
@@ -164,5 +165,10 @@ export function startScheduler(bot) {
     } catch (err) {
       console.error('Mood decay scheduler error:', err.message);
     }
+  });
+
+  // ===== Автозавершение зависших дуэлей (ежедневно в 21:00) =====
+  cron.schedule('0 21 * * *', async () => {
+    await autoCompleteDuels();
   });
 }

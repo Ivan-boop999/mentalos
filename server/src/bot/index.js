@@ -5,6 +5,12 @@ import pool from '../db/pool.js';
 // Хранилище ID сообщений прогресса (для editMessageText)
 const progressMessages = new Map();
 
+// Синглтон бота — доступен роутам для уведомлений (бадди/дуэли)
+let botInstance = null;
+export function getBot() {
+  return botInstance;
+}
+
 /** Строит текст прогресса дня для /progress */
 async function buildProgressText(userId) {
   const { rows: habits } = await pool.query(
@@ -63,6 +69,7 @@ export function initBot() {
   }
 
   const bot = new TelegramBot(token, { polling: true });
+  botInstance = bot;
 
   bot.setMyCommands([
     { command: 'start', description: 'Запустить MentalOS 🚀' },
@@ -173,29 +180,103 @@ export function initBot() {
     }
   });
 
-  // Кнопка «Обновить» — editMessageText
+  // ===== Единый обработчик inline-кнопок =====
   bot.on('callback_query', async (q) => {
-    if (q.data !== 'refresh_progress') return;
-    const userId = q.from.id;
-    const meta = progressMessages.get(userId);
-    if (!meta) return bot.answerCallbackQuery(q.id);
-    try {
-      const text = await buildProgressText(userId);
-      await bot.editMessageText(text.text, {
-        chat_id: meta.chatId,
-        message_id: meta.messageId,
-        parse_mode: 'Markdown',
-        reply_markup: {
-          inline_keyboard: [
-            webappUrl ? [{ text: `🧠 Открыть MentalOS (${text.done}/${text.total})`, web_app: { url: webappUrl } }] : [],
-            [{ text: '🔄 Обновить', callback_data: 'refresh_progress' }],
-          ].filter((r) => r.length),
-        },
-      });
-      bot.answerCallbackQuery(q.id, { text: 'Обновлено ✓' });
-    } catch (e) {
-      bot.answerCallbackQuery(q.id, { text: 'Уже актуально' });
+    // -- Обновить прогресс --
+    if (q.data === 'refresh_progress') {
+      const userId = q.from.id;
+      const meta = progressMessages.get(userId);
+      if (!meta) return bot.answerCallbackQuery(q.id);
+      try {
+        const text = await buildProgressText(userId);
+        await bot.editMessageText(text.text, {
+          chat_id: meta.chatId,
+          message_id: meta.messageId,
+          parse_mode: 'Markdown',
+          reply_markup: {
+            inline_keyboard: [
+              webappUrl ? [{ text: `🧠 Открыть MentalOS (${text.done}/${text.total})`, web_app: { url: webappUrl } }] : [],
+              [{ text: '🔄 Обновить', callback_data: 'refresh_progress' }],
+            ].filter((r) => r.length),
+          },
+        });
+        return bot.answerCallbackQuery(q.id, { text: 'Обновлено ✓' });
+      } catch (e) {
+        return bot.answerCallbackQuery(q.id, { text: 'Уже актуально' });
+      }
     }
+
+    // -- Бадди: согласие через кнопки --
+    if (q.data?.startsWith('buddy_')) {
+      const [, action, rowIdStr] = q.data.split('_');
+      const rowId = Number(rowIdStr);
+      const userId = q.from.id;
+      try {
+        const { rows } = await pool.query(
+          `SELECT user_id FROM buddies WHERE id = $1 AND buddy_id = $2 AND status = 'pending'`,
+          [rowId, userId],
+        );
+        if (!rows.length) return bot.answerCallbackQuery(q.id, { text: 'Заявка уже неактуальна' });
+        const inviterId = rows[0].user_id;
+
+        if (action === 'accept') {
+          await pool.query(`UPDATE buddies SET status = 'accepted' WHERE id = $1`, [rowId]);
+          await pool.query(
+            `INSERT INTO buddies (user_id, buddy_id, status) VALUES ($1, $2, 'accepted')
+             ON CONFLICT (user_id, buddy_id) DO UPDATE SET status = 'accepted'`,
+            [userId, inviterId],
+          );
+          bot.answerCallbackQuery(q.id, { text: '✅ Вы теперь бадди!' });
+          bot.editMessageText(`🤝 *${q.from.first_name || 'Друг'}* принял заявку — вы теперь бадди!`, {
+            chat_id: q.message.chat.id, message_id: q.message.message_id, parse_mode: 'Markdown',
+          }).catch(() => {});
+          bot.sendMessage(inviterId, `🤝 *${q.from.first_name || 'Друг'}* принял твою заявку в бадди! Теперь вы видите прогресс друг друга.`, { parse_mode: 'Markdown' }).catch(() => {});
+        } else if (action === 'decline') {
+          await pool.query(`DELETE FROM buddies WHERE id = $1`, [rowId]);
+          bot.answerCallbackQuery(q.id, { text: 'Заявка отклонена' });
+          bot.editMessageText('Заявка отклонена.', { chat_id: q.message.chat.id, message_id: q.message.message_id }).catch(() => {});
+        }
+      } catch (e) {
+        bot.answerCallbackQuery(q.id, { text: 'Ошибка' });
+      }
+      return;
+    }
+
+    // -- Дуэли: согласие через кнопки --
+    if (q.data?.startsWith('duel_')) {
+      const [, action, duelIdStr] = q.data.split('_');
+      const duelId = Number(duelIdStr);
+      const userId = q.from.id;
+      try {
+        const { rows } = await pool.query(
+          `SELECT * FROM duels WHERE id = $1 AND opponent_id = $2 AND status = 'pending'`,
+          [duelId, userId],
+        );
+        if (!rows.length) return bot.answerCallbackQuery(q.id, { text: 'Дуэль уже неактуальна' });
+        const duel = rows[0];
+
+        if (action === 'accept') {
+          await pool.query(`UPDATE duels SET status = 'active' WHERE id = $1`, [duelId]);
+          bot.answerCallbackQuery(q.id, { text: '⚔️ Дуэль началась!' });
+          bot.editMessageText(`⚔️ Дуэль принята! Победит тот, у кого серия длиннее.\nСтавка: *${duel.wager}* 🪙\nЗаверши дуэль в MentalOS, когда будешь уверен (Ещё → Битвы).`, {
+            chat_id: q.message.chat.id, message_id: q.message.message_id, parse_mode: 'Markdown',
+          }).catch(() => {});
+          bot.sendMessage(duel.challenger_id, `⚔️ Твою дуэль приняли! Ставка: *${duel.wager}* 🪙. Кто дольше продержит серию — забирает банк.`, { parse_mode: 'Markdown' }).catch(() => {});
+        } else if (action === 'decline') {
+          await pool.query(`UPDATE duels SET status = 'declined', finished_at = NOW() WHERE id = $1`, [duelId]);
+          await pool.query(`UPDATE users SET bonus_balance = bonus_balance + $1 WHERE id = $2`, [duel.wager, duel.challenger_id]);
+          await pool.query(`INSERT INTO bonus_transactions (user_id, amount, reason) VALUES ($1, $2, 'duel_refund')`, [duel.challenger_id, duel.wager]);
+          bot.answerCallbackQuery(q.id, { text: 'Дуэль отклонена' });
+          bot.editMessageText('Дуэль отклонена. Ставка возвращена.', { chat_id: q.message.chat.id, message_id: q.message.message_id }).catch(() => {});
+          bot.sendMessage(duel.challenger_id, `🤝 Дуэль отклонена — ставка *${duel.wager}* 🪙 возвращена.`, { parse_mode: 'Markdown' }).catch(() => {});
+        }
+      } catch (e) {
+        bot.answerCallbackQuery(q.id, { text: 'Ошибка' });
+      }
+      return;
+    }
+
+    return bot.answerCallbackQuery(q.id);
   });
 
   // /recap — недельный отчёт
