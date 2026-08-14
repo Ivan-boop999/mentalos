@@ -156,9 +156,25 @@ CREATE TABLE IF NOT EXISTS buddy_notified (
 CREATE TABLE IF NOT EXISTS pet_notified (
     user_id         BIGINT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
     date            DATE NOT NULL,
-    kind            TEXT NOT NULL,                -- morning | evening | comeback
+    kind            TEXT NOT NULL,                -- morning | evening | comeback | visit:1:2
     PRIMARY KEY (user_id, date, kind)
 );
+
+-- Приключения питомца (appointment-цикл Finch)
+CREATE TABLE IF NOT EXISTS adventures (
+    id              SERIAL PRIMARY KEY,
+    user_id         BIGINT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    started_at      TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    returns_at      TIMESTAMPTZ NOT NULL,
+    status          TEXT NOT NULL DEFAULT 'active',  -- active | completed | claimed
+    reward_type     TEXT,                           -- bonus | xp | item | mood
+    reward_amount   INTEGER,
+    reward_item     TEXT,
+    claimed_at      TIMESTAMPTZ
+);
+
+CREATE INDEX IF NOT EXISTS idx_adventures_user ON adventures(user_id);
+CREATE INDEX IF NOT EXISTS idx_adventures_active ON adventures(status, returns_at) WHERE status = 'active';
 
 -- Кастомизация компаньона (шапки, очки, одежда — покупаются за бонусы)
 CREATE TABLE IF NOT EXISTS companion_items (
@@ -229,6 +245,10 @@ DO $$ BEGIN ALTER TABLE users ADD COLUMN companion_type TEXT NOT NULL DEFAULT 's
 DO $$ BEGIN ALTER TABLE users ADD COLUMN companion_xp INTEGER NOT NULL DEFAULT 0;            EXCEPTION WHEN duplicate_column THEN NULL; END $$;
 DO $$ BEGIN ALTER TABLE users ADD COLUMN companion_mood INTEGER NOT NULL DEFAULT 50;         EXCEPTION WHEN duplicate_column THEN NULL; END $$;
 DO $$ BEGIN ALTER TABLE users ADD COLUMN last_mood_decay TIMESTAMPTZ;                          EXCEPTION WHEN duplicate_column THEN NULL; END $$;
+DO $$ BEGIN ALTER TABLE users ADD COLUMN companion_trait TEXT NOT NULL DEFAULT 'curious';      EXCEPTION WHEN duplicate_column THEN NULL; END $$;
+DO $$ BEGIN ALTER TABLE users ADD COLUMN companion_birthday DATE;                              EXCEPTION WHEN duplicate_column THEN NULL; END $$;
+DO $$ BEGIN ALTER TABLE users ADD COLUMN companion_stage TEXT NOT NULL DEFAULT 'egg';          EXCEPTION WHEN duplicate_column THEN NULL; END $$;
+DO $$ BEGIN ALTER TABLE users ADD COLUMN last_shop_bonus DATE;                                 EXCEPTION WHEN duplicate_column THEN NULL; END $$;
 DO $$ BEGIN ALTER TABLE users ADD COLUMN streak_insurance BOOLEAN NOT NULL DEFAULT FALSE;    EXCEPTION WHEN duplicate_column THEN NULL; END $$; -- активная страховка стрика
 DO $$ BEGIN ALTER TABLE users ADD COLUMN companion_equipped JSONB NOT NULL DEFAULT '{}'::jsonb; EXCEPTION WHEN duplicate_column THEN NULL; END $$; -- {hat, glasses, accessory} -- 0-100
 
@@ -302,13 +322,32 @@ INSERT INTO companion_items (code, title, category, emoji, price, sort_order) VA
   ('hat_cap', 'Кепка', 'hat', '🧢', 100, 2),
   ('hat_top', 'Цилиндр', 'hat', '🎩', 150, 3),
   ('hat_party', 'Вечеринка', 'hat', '🥳', 120, 4),
+  ('hat_grad', 'Выпускник', 'hat', '🎓', 180, 5),
+  ('hat_santa', 'Колпак', 'hat', '🎅', 150, 6),
   ('glasses_sun', 'Солнечные', 'glasses', '🕶️', 100, 1),
   ('glasses_round', 'Круглые', 'glasses', '🤓', 120, 2),
   ('glasses_3d', '3D очки', 'glasses', '🥽', 150, 3),
+  ('glasses_monocle', 'Монокль', 'glasses', '🧐', 130, 4),
   ('acc_bow', 'Бант', 'accessory', '🎀', 80, 1),
   ('acc_wings', 'Крылья', 'accessory', '🦋', 300, 2),
   ('acc_halo', 'Нимб', 'accessory', '😇', 500, 3),
-  ('acc_fire', 'Огонь', 'accessory', '💫', 250, 4)
+  ('acc_fire', 'Огонь', 'accessory', '💫', 250, 4),
+  ('acc_star', 'Звезда', 'accessory', '⭐', 150, 5),
+  ('acc_balloon', 'Шарик', 'accessory', '🎈', 90, 6),
+  ('home_forest', 'Лес', 'home', '🌲', 200, 1),
+  ('home_beach', 'Пляж', 'home', '🏖️', 200, 2),
+  ('home_space', 'Космос', 'home', '🌌', 350, 3),
+  ('home_rainbow', 'Радуга', 'home', '🌈', 250, 4),
+  ('home_cottage', 'Домик', 'home', '🏡', 300, 5),
+  ('home_garden', 'Сад', 'home', '🌸', 220, 6),
+  ('home_night', 'Ночной город', 'home', '🌃', 280, 7),
+  ('home_candy', 'Конфетная', 'home', '🍬', 180, 8),
+  ('home_cozy', 'Уют', 'home', '🕯️', 160, 9),
+  ('home_akira', 'Неон-улица', 'home', '🏙️', 320, 10),
+  ('home_autumn', 'Осень', 'home', '🍁', 200, 11),
+  ('home_sakura', 'Сакура', 'home', '🌸', 260, 12),
+  ('home_zen', 'Дзен', 'home', '🪷', 240, 13),
+  ('home_lava', 'Вулкан', 'home', '🌋', 330, 14)
 ON CONFLICT (code) DO NOTHING;
 CREATE UNIQUE INDEX IF NOT EXISTS uq_referral_code ON users(referral_code);
 

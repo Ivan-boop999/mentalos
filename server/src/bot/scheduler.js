@@ -229,6 +229,99 @@ export function startScheduler(bot) {
     }));
   });
 
+  // ===== Возврат питомцев из приключений (каждые 5 минут) =====
+  cron.schedule('*/5 * * * *', async () => {
+    try {
+      const { rows: arrived } = await pool.query(
+        `SELECT a.id, a.user_id, u.companion_name, u.companion_type
+         FROM adventures a JOIN users u ON u.id = a.user_id
+         WHERE a.status = 'active' AND a.returns_at <= NOW()`,
+      );
+      for (const a of arrived) {
+        await pool.query(`UPDATE adventures SET status = 'completed' WHERE id = $1`, [a.id]);
+        const emoji = { spark: '✨', leaf: '🌿', drop: '💧', flame: '🔥' }[a.companion_type] || '✨';
+        try {
+          await bot.sendMessage(a.user_id,
+            `${emoji} *${a.companion_name}* вернулся из приключения и что-то принёс!\n\nЗагляни забрать находку 🎁`,
+            {
+              parse_mode: 'Markdown',
+              reply_markup: process.env.WEBAPP_URL
+                ? { reply_markup: { inline_keyboard: [[{ text: '🎁 Забрать находку', web_app: { url: process.env.WEBAPP_URL } }]] } }
+                : {},
+            },
+          );
+        } catch (e) { /* юзер заблокировал бота */ }
+      }
+    } catch (err) {
+      console.error('adventure return cron:', err.message);
+    }
+  });
+
+  // ===== День рождения питомца (10:00) — подарок и поздравление =====
+  cron.schedule('0 10 * * *', async () => {
+    try {
+      const { rows: bdays } = await pool.query(
+        `SELECT id, first_name, companion_name, companion_type, companion_birthday
+         FROM users WHERE companion_birthday = CURRENT_DATE`,
+      );
+      for (const u of bdays) {
+        const uid = Number(u.id);
+        const { rows: dup } = await pool.query(
+          `SELECT 1 FROM pet_notified WHERE user_id = $1 AND date = CURRENT_DATE AND kind = 'birthday'`, [uid],
+        );
+        if (dup.length) continue;
+        await pool.query(`UPDATE users SET bonus_balance = bonus_balance + 50 WHERE id = $1`, [uid]);
+        await pool.query(`INSERT INTO bonus_transactions (user_id, amount, reason) VALUES ($1, 50, 'pet_birthday')`, [uid]);
+        const emoji = { spark: '✨', leaf: '🌿', drop: '💧', flame: '🔥' }[u.companion_type] || '✨';
+        const years = Math.max(1, Math.round((Date.now() - new Date(u.companion_birthday).getTime()) / (365.25 * 86400000)));
+        try {
+          await bot.sendMessage(uid,
+            `🎂 У *${u.companion_name}* сегодня день рождения — ${years} ${years === 1 ? 'годик' : 'годиков'}!\n\n` +
+            `Он(а) приготовил(а) тебе подарок: 🪙 +50 бонусов. Отметь сегодня что-нибудь особенное вместе! ${emoji}`,
+            { parse_mode: 'Markdown' },
+          );
+        } catch (e) {}
+        await pool.query(`INSERT INTO pet_notified (user_id, date, kind) VALUES ($1, CURRENT_DATE, 'birthday') ON CONFLICT DO NOTHING`, [uid]);
+      }
+    } catch (err) {
+      console.error('pet birthday cron:', err.message);
+    }
+  });
+
+  // ===== Визиты питомцев бадди (12:10, шанс 25%, не чаще раза в 3 дня на пару) =====
+  cron.schedule('10 12 * * *', async () => {
+    try {
+      const { rows: pairs } = await pool.query(
+        `SELECT b.user_id AS a, b.buddy_id AS b,
+                ua.companion_name AS name_a, ub.companion_name AS name_b
+         FROM buddies b
+         JOIN users ua ON ua.id = b.user_id
+         JOIN users ub ON ub.id = b.buddy_id
+         WHERE b.status = 'accepted' AND b.user_id < b.buddy_id`,
+      );
+      for (const p of pairs) {
+        if (Math.random() > 0.25) continue;
+        const kind = `visit:${p.a}:${p.b}`;
+        const { rows: dup } = await pool.query(
+          `SELECT 1 FROM pet_notified WHERE user_id = $1 AND kind = $2 AND date > CURRENT_DATE - 3`, [Number(p.a), kind],
+        );
+        if (dup.length) continue;
+        // Обоим +5 бонусов
+        for (const uid of [Number(p.a), Number(p.b)]) {
+          await pool.query(`UPDATE users SET bonus_balance = bonus_balance + 5 WHERE id = $1`, [uid]);
+          await pool.query(`INSERT INTO bonus_transactions (user_id, amount, reason) VALUES ($1, 5, 'pet_visit')`, [uid]);
+          await pool.query(`INSERT INTO pet_notified (user_id, date, kind) VALUES ($1, CURRENT_DATE, $2) ON CONFLICT DO NOTHING`, [uid, kind]);
+        }
+        try {
+          await bot.sendMessage(Number(p.b), `🐾 *${p.name_a}* (питомец твоего бадди) заглянул(а) в гости к *${p.name_b}*!\nОбоим — 🪙 +5 бонусов за тёплую встречу!`, { parse_mode: 'Markdown' });
+          await bot.sendMessage(Number(p.a), `🐾 *${p.name_b}* принимал(а) гостей: к нему/к ней зашёл(ла) *${p.name_a}*!\nОбоим — 🪙 +5 бонусов 🎉`, { parse_mode: 'Markdown' });
+        } catch (e) {}
+      }
+    } catch (err) {
+      console.error('pet visits cron:', err.message);
+    }
+  });
+
   // ===== Автозавершение зависших дуэлей (ежедневно в 21:00) =====
   cron.schedule('0 21 * * *', async () => {
     await autoCompleteDuels();

@@ -8,6 +8,11 @@ const TYPES = [
   { v: 'drop', label: '💧 Капелька' },
   { v: 'flame', label: '🔥 Огонёк' },
 ];
+const TRAITS = [
+  { v: 'curious', label: '🔍 Любопытный' },
+  { v: 'gentle', label: '🤗 Милый' },
+  { v: 'sassy', label: '😏 Дерзкий' },
+];
 
 /**
  * Companion Shop v2: настройки питомца (имя/тип) + магазин с надеть/СНЯТЬ.
@@ -19,6 +24,7 @@ export default function CompanionShopPage() {
   const [pet, setPet] = useState({ name: '', type: 'spark', stage: 'egg' });
   const [nameDraft, setNameDraft] = useState('');
   const [typeDraft, setTypeDraft] = useState('spark');
+  const [traitDraft, setTraitDraft] = useState('curious');
   const [savedMsg, setSavedMsg] = useState('');
 
   const load = async () => {
@@ -32,15 +38,24 @@ export default function CompanionShopPage() {
       setPet(c);
       setNameDraft(c.name || '');
       setTypeDraft(c.type || 'spark');
+      setTraitDraft(c.trait || 'curious');
     } catch {}
   };
   useEffect(() => { load(); }, []);
 
   const savePet = async () => {
     try {
-      await api.updateCompanion({ name: nameDraft.trim(), type: typeDraft });
+      await api.updateCompanion({ name: nameDraft.trim(), type: typeDraft, trait: traitDraft });
       setSavedMsg('✅ Сохранено');
       setTimeout(() => setSavedMsg(''), 2000);
+      load();
+    } catch (e) { alert('❌ ' + e.message); }
+  };
+
+  const dailyBonus = async () => {
+    try {
+      const res = await api.claimShopDailyBonus();
+      alert(`🎁 Ежедневный бонус: 🪙 +${res.amount}!`);
       load();
     } catch (e) { alert('❌ ' + e.message); }
   };
@@ -59,7 +74,7 @@ export default function CompanionShopPage() {
   const ownedCodes = new Set(inv.owned.map((o) => o.item_code));
 
   const grouped = shop.reduce((acc, item) => { (acc[item.category] ||= []).push(item); return acc; }, {});
-  const catLabels = { hat: '🎩 Головные уборы', glasses: '🕶️ Очки', accessory: '✨ Аксессуары' };
+  const catLabels = { hat: '🎩 Головные уборы', glasses: '🕶️ Очки', accessory: '✨ Аксессуары', home: '🏠 Домик (фон)' };
 
   return (
     <div className="page companion-shop">
@@ -69,7 +84,7 @@ export default function CompanionShopPage() {
         <div className="cs-balance">🪙 {balance}</div>
       </div>
 
-      {/* НАСТРОЙКИ ПИТОМЦА (имя + тип) */}
+      {/* НАСТРОЙКИ ПИТОМЦА (имя + тип + черта) */}
       <div className="pet-settings glass">
         <h3 className="card-title">Настройки</h3>
         <label className="field-label">Имя питомца</label>
@@ -88,13 +103,26 @@ export default function CompanionShopPage() {
             </button>
           ))}
         </div>
-        <button className="primary-btn" onClick={savePet} disabled={!nameDraft.trim() || (nameDraft.trim() === pet.name && typeDraft === pet.type)}>
+        <label className="field-label">Характер (влияет на реплики)</label>
+        <div className="seg-control">
+          {TRAITS.map((t) => (
+            <button key={t.v} type="button" className={`seg-btn ${traitDraft === t.v ? 'active' : ''}`} onClick={() => setTraitDraft(t.v)}>
+              {t.label}
+            </button>
+          ))}
+        </div>
+        <button className="primary-btn" onClick={savePet} disabled={!nameDraft.trim() || (nameDraft.trim() === pet.name && typeDraft === pet.type && traitDraft === pet.trait)}>
           <Save size={16} /> {savedMsg || 'Сохранить'}
         </button>
         {pet.stage === 'egg' && (
           <p className="hint">🥚 Питомец ещё в яйце — предметы станут видны после вылупления. Каждая отметка привычки приближает его!</p>
         )}
       </div>
+
+      {/* Ежедневная бесплатка */}
+      <button className="primary-btn ghost-btn daily-bonus-btn" onClick={dailyBonus} disabled={!pet.shopBonusAvailable}>
+        🎁 {pet.shopBonusAvailable ? 'Забрать ежедневный бонус (+10 🪙)' : 'Бонус получен — заходи завтра!'}
+      </button>
 
       {Object.entries(grouped).map(([cat, items]) => (
         <div key={cat}>

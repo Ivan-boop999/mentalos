@@ -4,7 +4,8 @@ import pool from '../db/pool.js';
 const router = Router();
 
 const TYPES = ['spark', 'leaf', 'drop', 'flame'];
-const CATEGORIES = ['hat', 'glasses', 'accessory'];
+const TRAITS = ['curious', 'gentle', 'sassy'];
+const CATEGORIES = ['hat', 'glasses', 'accessory', 'home'];
 
 function stageOf(level) {
   // Finch-паттерн: БЫСТРОЕ первое вылупление (4 отметки), потом долгий рост
@@ -14,30 +15,50 @@ function stageOf(level) {
   return 'adult';                 // 4050+ XP
 }
 
-/** GET /api/companion — состояние питомца */
+/** GET /api/companion — состояние питомца (+ приключение, черта, ДР, бесплатка) */
 router.get('/', async (req, res) => {
   const userId = req.userId;
   try {
     const { rows: u } = await pool.query(
-      `SELECT companion_name, companion_type, companion_xp, companion_mood, companion_equipped FROM users WHERE id = $1`,
+      `SELECT companion_name, companion_type, companion_xp, companion_mood, companion_equipped,
+              companion_trait, companion_birthday, last_shop_bonus
+       FROM users WHERE id = $1`,
       [userId],
     );
-    // ФИКС-A1: полный набор полей даже в fallback (иначе фронт считал NaN в XP-баре)
     const xp = u[0] ? Number(u[0].companion_xp) || 0 : 0;
     const level = Math.floor(Math.sqrt(xp / 50)) + 1;
     let equipped = u[0]?.companion_equipped || {};
     if (typeof equipped === 'string') { try { equipped = JSON.parse(equipped); } catch { equipped = {}; } }
     if (!equipped || typeof equipped !== 'object') equipped = {};
 
+    // Активное/завершённое приключение
+    const { rows: adv } = await pool.query(
+      `SELECT id, status, returns_at::text AS returns_at, started_at::text AS started_at
+       FROM adventures WHERE user_id = $1 AND status IN ('active','completed')
+       ORDER BY started_at DESC LIMIT 1`, [userId],
+    );
+    let adventure = null;
+    if (adv[0]) {
+      adventure = {
+        id: adv[0].id,
+        status: adv[0].status === 'completed' ? 'ready' : 'active',
+        returnsAt: adv[0].returns_at,
+        canClaim: adv[0].status === 'completed',
+      };
+    }
+
     res.json({
       name: u[0]?.companion_name || 'Спарк',
       type: u[0]?.companion_type || 'spark',
       xp,
-      // ФИКС falsy-zero: Number(0) || 50 превращал легитимный mood=0 в 50
       mood: u.length ? Number(u[0].companion_mood) : 50,
       level,
       stage: stageOf(level),
       equipped,
+      trait: u[0]?.companion_trait || 'curious',
+      isBirthday: !!(u[0]?.companion_birthday && new Date(u[0].companion_birthday).toDateString() === new Date().toDateString()),
+      adventure,
+      shopBonusAvailable: !(u[0]?.last_shop_bonus && new Date(u[0].last_shop_bonus).toDateString() === new Date().toDateString()),
       xpToNext: Math.pow(level, 2) * 50,
       xpForThis: Math.pow(level - 1, 2) * 50,
     });
@@ -47,11 +68,10 @@ router.get('/', async (req, res) => {
   }
 });
 
-/** PUT /api/companion — переименовать / сменить тип */
+/** PUT /api/companion — переименовать / сменить тип / черту характера */
 router.put('/', async (req, res) => {
-  const { name, type } = req.body;
+  const { name, type, trait } = req.body;
   const sets = {};
-  // ФИКС-A2: пустое имя после trim отклоняем
   if (name !== undefined) {
     const n = typeof name === 'string' ? name.trim() : '';
     if (n.length === 0 || n.length > 20) return res.status(400).json({ error: 'Имя: 1–20 символов' });
@@ -60,6 +80,10 @@ router.put('/', async (req, res) => {
   if (type !== undefined) {
     if (!TYPES.includes(type)) return res.status(400).json({ error: 'Недопустимый тип' });
     sets.companion_type = type;
+  }
+  if (trait !== undefined) {
+    if (!TRAITS.includes(trait)) return res.status(400).json({ error: 'Недопустимая черта' });
+    sets.companion_trait = trait;
   }
   if (!Object.keys(sets).length) return res.status(400).json({ error: 'Нечего обновлять' });
 
@@ -226,6 +250,170 @@ export async function decayCompanionMood(userId) {
     `UPDATE users SET companion_mood = LEAST(100, GREATEST(0, companion_mood + ($2 - companion_mood) * 0.2)) WHERE id = $1`,
     [userId, target],
   );
+}
+
+// ============================================================
+//  ПРИКЛЮЧЕНИЯ (appointment-цикл Finch)
+// ============================================================
+
+const ADVENTURE_HOURS = Number(process.env.ADVENTURE_HOURS) || 6;
+
+/** POST /api/companion/adventure/start — отправить питомца в приключение */
+router.post('/adventure/start', async (req, res) => {
+  const userId = req.userId;
+  try {
+    const { rows: u } = await pool.query(
+      `SELECT companion_xp, companion_name, companion_stage FROM users WHERE id = $1`, [userId],
+    );
+    const xp = Number(u[0]?.companion_xp) || 0;
+    if (stageOf(Math.floor(Math.sqrt(xp / 50)) + 1) === 'egg') {
+      return res.status(400).json({ error: 'Питомец ещё не вылупился — отметь пару привычек!' });
+    }
+    // Уже в пути?
+    const { rows: active } = await pool.query(
+      `SELECT id, status, returns_at::text AS returns_at FROM adventures
+       WHERE user_id = $1 AND status IN ('active','completed') ORDER BY started_at DESC LIMIT 1`, [userId],
+    );
+    if (active.length) {
+      return res.status(409).json({ error: 'Питомец уже в приключении', adventure: active[0] });
+    }
+
+    // Рандомим награду заранее (предмет — только из невладеемых)
+    const rewards = [
+      { type: 'bonus', weight: 35, amount: [10, 15, 20, 25] },
+      { type: 'xp', weight: 25, amount: [20, 30, 40] },
+      { type: 'mood', weight: 20, amount: [10, 15] },
+      { type: 'item', weight: 20 },
+    ];
+    const total = rewards.reduce((s, r) => s + r.weight, 0);
+    let roll = Math.random() * total;
+    let reward = rewards[0];
+    for (const r of rewards) { roll -= r.weight; if (roll <= 0) { reward = r; break; } }
+
+    let rewardItem = null;
+    if (reward.type === 'item') {
+      const { rows: candidates } = await pool.query(
+        `SELECT ci.code FROM companion_items ci
+         WHERE NOT EXISTS (SELECT 1 FROM user_items ui WHERE ui.user_id = $1 AND ui.item_code = ci.code)
+         ORDER BY random() LIMIT 1`, [userId],
+      );
+      if (candidates.length) rewardItem = candidates[0].code;
+      else reward = { type: 'bonus', amount: [20] }; // всё куплено — бонусом
+    }
+    const amount = Array.isArray(reward.amount) ? reward.amount[Math.floor(Math.random() * reward.amount.length)] : null;
+
+    const returnsAt = new Date(Date.now() + ADVENTURE_HOURS * 3600 * 1000);
+    await pool.query(
+      `INSERT INTO adventures (user_id, returns_at, reward_type, reward_amount, reward_item)
+       VALUES ($1, $2, $3, $4, $5)`,
+      [userId, returnsAt.toISOString(), reward.type, amount, rewardItem],
+    );
+    res.json({ ok: true, returnsAt: returnsAt.toISOString(), hours: ADVENTURE_HOURS });
+  } catch (err) {
+    console.error('adventure start:', err);
+    res.status(500).json({ error: 'Ошибка сервера' });
+  }
+});
+
+/** POST /api/companion/adventure/claim — забрать находку */
+router.post('/adventure/claim', async (req, res) => {
+  const userId = req.userId;
+  try {
+    const { rows: adv } = await pool.query(
+      `SELECT * FROM adventures WHERE user_id = $1 AND status IN ('active','completed')
+       ORDER BY started_at DESC LIMIT 1`, [userId],
+    );
+    if (!adv.length) return res.status(404).json({ error: 'Нет приключения' });
+    const a = adv[0];
+    if (new Date(a.returns_at) > new Date()) {
+      return res.status(400).json({ error: 'Питомец ещё в пути', returnsAt: a.returns_at });
+    }
+    if (a.status === 'claimed') return res.status(409).json({ error: 'Уже забрано' });
+
+    // Выдаём награду
+    let rewardLabel = '';
+    if (a.reward_type === 'bonus') {
+      await pool.query(`UPDATE users SET bonus_balance = bonus_balance + $1 WHERE id = $2`, [a.reward_amount, userId]);
+      await pool.query(`INSERT INTO bonus_transactions (user_id, amount, reason) VALUES ($1, $2, 'adventure')`, [userId, a.reward_amount]);
+      rewardLabel = `🪙 +${a.reward_amount} бонусов`;
+    } else if (a.reward_type === 'xp') {
+      await pool.query(`UPDATE users SET xp = xp + $1 WHERE id = $2`, [a.reward_amount, userId]);
+      rewardLabel = `⚡ +${a.reward_amount} XP`;
+    } else if (a.reward_type === 'mood') {
+      await pool.query(`UPDATE users SET companion_mood = LEAST(100, companion_mood + $1) WHERE id = $2`, [a.reward_amount, userId]);
+      rewardLabel = `😊 +${a.reward_amount} настроения`;
+    } else if (a.reward_type === 'item') {
+      await pool.query(`INSERT INTO user_items (user_id, item_code) VALUES ($1, $2) ON CONFLICT DO NOTHING`, [userId, a.reward_item]);
+      const { rows: it } = await pool.query(`SELECT title, emoji FROM companion_items WHERE code = $1`, [a.reward_item]);
+      rewardLabel = `${it[0]?.emoji || '🎁'} ${it[0]?.title || 'Подарок'} (бесплатно!)`;
+    }
+    await pool.query(`UPDATE adventures SET status = 'claimed', claimed_at = NOW() WHERE id = $1`, [a.id]);
+    res.json({ ok: true, rewardLabel });
+  } catch (err) {
+    console.error('adventure claim:', err);
+    res.status(500).json({ error: 'Ошибка сервера' });
+  }
+});
+
+/** POST /api/companion/shop/daily-bonus — ежедневная бесплатка (Finch: stones за визит) */
+router.post('/shop/daily-bonus', async (req, res) => {
+  const userId = req.userId;
+  try {
+    const { rows: u } = await pool.query(`SELECT last_shop_bonus FROM users WHERE id = $1`, [userId]);
+    const last = u[0]?.last_shop_bonus;
+    if (last && new Date(last).toDateString() === new Date().toDateString()) {
+      return res.status(409).json({ error: 'Бонус уже получен сегодня', available: false });
+    }
+    await pool.query(`UPDATE users SET bonus_balance = bonus_balance + 10, last_shop_bonus = CURRENT_DATE WHERE id = $1`, [userId]);
+    await pool.query(`INSERT INTO bonus_transactions (user_id, amount, reason) VALUES ($1, 10, 'shop_daily')`, [userId]);
+    res.json({ ok: true, amount: 10 });
+  } catch (err) {
+    console.error('daily bonus:', err);
+    res.status(500).json({ error: 'Ошибка сервера' });
+  }
+});
+
+/**
+ * МИЛСТОУНЫ питомца: вылупление (birthday) и эволюция (подарок).
+ * Вызывается из /log после начисления. Возвращает { stage, giftLabel } | null.
+ */
+export async function checkCompanionMilestones(userId) {
+  try {
+    const { rows: u } = await pool.query(
+      `SELECT companion_xp, companion_stage, companion_birthday FROM users WHERE id = $1`, [userId],
+    );
+    if (!u.length) return null;
+    const xp = Number(u[0].companion_xp) || 0;
+    const level = Math.floor(Math.sqrt(xp / 50)) + 1;
+    const newStage = stageOf(level);
+    const oldStage = u[0].companion_stage || 'egg';
+    const order = ['egg', 'baby', 'teen', 'adult'];
+    if (order.indexOf(newStage) <= order.indexOf(oldStage)) return null; // без перехода
+
+    let giftLabel = '';
+    if (newStage === 'baby' && !u[0].companion_birthday) {
+      await pool.query(`UPDATE users SET companion_birthday = CURRENT_DATE WHERE id = $1`, [userId]);
+    }
+    // Подарок эволюции: случайный невладеемый предмет или бонус
+    const { rows: candidates } = await pool.query(
+      `SELECT ci.code, ci.title, ci.emoji FROM companion_items ci
+       WHERE NOT EXISTS (SELECT 1 FROM user_items ui WHERE ui.user_id = $1 AND ui.item_code = ci.code)
+       ORDER BY random() LIMIT 1`, [userId],
+    );
+    if (candidates.length) {
+      await pool.query(`INSERT INTO user_items (user_id, item_code) VALUES ($1, $2) ON CONFLICT DO NOTHING`, [userId, candidates[0].code]);
+      giftLabel = `${candidates[0].emoji} ${candidates[0].title} — подарок эволюции!`;
+    } else {
+      await pool.query(`UPDATE users SET bonus_balance = bonus_balance + 25 WHERE id = $1`, [userId]);
+      await pool.query(`INSERT INTO bonus_transactions (user_id, amount, reason) VALUES ($1, 25, 'evolution_gift')`, [userId]);
+      giftLabel = '🪙 +25 бонусов — подарок эволюции!';
+    }
+    await pool.query(`UPDATE users SET companion_stage = $1 WHERE id = $2`, [newStage, userId]);
+    return { stage: newStage, giftLabel };
+  } catch (err) {
+    console.error('milestones:', err);
+    return null;
+  }
 }
 
 export default router;

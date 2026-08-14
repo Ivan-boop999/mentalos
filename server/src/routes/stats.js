@@ -33,7 +33,7 @@ router.get('/', async (req, res) => {
 
     const perDay = [];
     const today = new Date(new Date().toISOString().slice(0, 10) + 'T00:00:00Z'); // UTC-якорь
-    let totalDone = 0, totalExpected = 0, perfectDays = 0, currentPerfectStreak = 0;
+    let totalDone = 0, totalExpected = 0, perfectDays = 0;
 
     for (let i = days - 1; i >= 0; i--) {
       const d = new Date(today);
@@ -60,8 +60,16 @@ router.get('/', async (req, res) => {
       totalExpected += expected.length;
       if (expected.length > 0 && doneCount === expected.length) {
         perfectDays++;
-        if (i === days - 1 - currentPerfectStreak) currentPerfectStreak++;
       }
+    }
+
+    // ФИКС: ТЕКУЩАЯ серия идеальных дней — от сегодня НАЗАД до первого разрыва
+    // (старая логика считала «с начала периода» и не сбрасывалась)
+    let currentPerfectStreak = 0;
+    for (let k = perDay.length - 1; k >= 0; k--) {
+      if (perDay[k].total === 0) continue;        // день без ожидаемых привычек не мешает серии
+      if (perDay[k].perfect) currentPerfectStreak++;
+      else break;
     }
 
     // bestStreak — лучший текущий

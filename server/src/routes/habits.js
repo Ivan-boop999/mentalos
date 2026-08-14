@@ -1,6 +1,6 @@
 import { Router } from 'express';
 import pool from '../db/pool.js';
-import { rewardCompanion, rollbackCompanion } from './companion.js';
+import { rewardCompanion, rollbackCompanion, checkCompanionMilestones } from './companion.js';
 import { updateMissionsOnAction } from './missions.js';
 
 const router = Router();
@@ -376,6 +376,9 @@ router.post('/:id/log', async (req, res) => {
 
     const newAchievements = grantDone ? await checkAchievements(userId, habitId, streak) : [];
 
+    // Милстоуны питомца (вылупление/эволюция + подарок)
+    const evolution = grantDone ? await checkCompanionMilestones(userId) : null;
+
     // Variable reward (~12% шанс) — только на валидное начисление (анти-фарм)
     let surprise = null;
     if (grantDone && Math.random() < 0.12) {
@@ -401,7 +404,7 @@ router.post('/:id/log', async (req, res) => {
     res.json({
       ok: true, date, status: finalStatus, value, streak,
       best_streak: Math.max(streak, hRows[0].best_streak || 0),
-      newAchievements, bonusEarned, xpEarned, leveledUp, surprise,
+      newAchievements, bonusEarned, xpEarned, leveledUp, surprise, evolution,
     });
   } catch (err) {
     console.error('log:', err);

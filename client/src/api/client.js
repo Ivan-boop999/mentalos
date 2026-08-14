@@ -78,13 +78,16 @@ export const api = {
   getLeaderboard: () => request('/api/leaderboard'),
   setPublicProfile: (pub) => request('/api/leaderboard/visibility', { method: 'PUT', body: JSON.stringify({ public: pub }) }),
 
-  // Companion (живой персонаж + кастомизация)
+  // Companion (живой персонаж + кастомизация + приключения)
   getCompanion: () => request('/api/companion'),
   updateCompanion: (data) => request('/api/companion', { method: 'PUT', body: JSON.stringify(data) }),
   getCompanionShop: () => request('/api/companion/shop'),
   getCompanionInventory: () => request('/api/companion/inventory'),
   buyCompanionItem: (code) => request('/api/companion/buy', { method: 'POST', body: JSON.stringify({ code }) }),
   equipCompanionItem: (code, category) => request('/api/companion/equip', { method: 'POST', body: JSON.stringify({ code, category }) }),
+  startAdventure: () => request('/api/companion/adventure/start', { method: 'POST' }),
+  claimAdventure: () => request('/api/companion/adventure/claim', { method: 'POST' }),
+  claimShopDailyBonus: () => request('/api/companion/shop/daily-bonus', { method: 'POST' }),
 
   // Buddies (бадди-механика с согласием)
   getBuddies: () => request('/api/buddies'),

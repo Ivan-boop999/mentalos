@@ -8,35 +8,75 @@ const TYPE_COLORS = {
   flame: { main: '#F59E0B', light: '#FBBF24', glow: '#FCD34D', accent: '#EF4444' },
 };
 
-/** Пузыри речи (Finch-паттерн: whimsical, zero-guilt, зависит от настроения/стадии) */
+/** Пузыри речи: 6 состояний (Sprout-паттерн) × черта характера (Finch-паттерн) */
 const PHRASES = {
   egg: [
     'Внутри что-то тёплое шевелится…',
-    'Скоро вылуплюсь!коплю силу',
-    'Тссс. Я Growing.',
+    'Скоро вылуплюсь! Коплю силу.',
+    'Тссс. Я расту.',
     'Каждая твоя отметка греет моё яичко 🌡️',
+  ],
+  sleeping: [
+    'Zzz… спатеньки… Zzz…',
+    'Сплю. Виду сон про гору отметок…',
+    'Ночью даже питомцы отдыхают 💤',
   ],
   happy: [
     'Сегодня лучший день! А завтра будет ещё лучше!',
     'Я так тобой горжусь ✨',
     'Давай танцевать! Лапки сами танцуют!',
-    'У меня отличное настроение, чувствую?',
+    'У меня отличное настроение, чувствуешь?',
   ],
-  ok: [
+  proud: [
+    'Посмотри, как я вырос!',
+    'Наша серия — это красиво.',
+    'Мы с тобой хорошая команда.',
+    'Мне нравится, как сегодня идёт день.',
+  ],
+  focused: [
     'Спокойный и ровный день. Это тоже хорошо.',
     'Я тут, рядом. Всегда.',
     'Что загадаешь на завтра?',
     'Потихоньку-полегоньку 🌱',
   ],
-  sleepy: [
+  idle: [
     'Я не грущу — просто дремлю. Зайди расскажешь, как дела 💜',
     'Перерывы — это нормально. Я никуда не денусь.',
     'Смотрю в окошко и жду тебя 🌤️',
+    'Могу просто помолчать рядом. Это тоже поддержка.',
+  ],
+  sleepy: [
     'Сон — тоже привычка, между прочим 😴',
+    'Я подремлю чуть-чуть…',
+    'Позови — сразу проснусь!',
+  ],
+  adventure: [
+    'Собираю рюкзажек… Ой, он больше меня!',
+    'Пойду поищу нам подарок!',
+    'Скоро вернусь с находкой!',
+  ],
+  birthday: [
+    'У меня сегодня день рождения! 🎂',
+    'Тортик? Тортик!!! 🎉',
   ],
 };
 
+/** Модификаторы черты характера (добавляются к базовым репликам) */
+const TRAIT_FLAVOR = {
+  curious: ['А что это у тебя там?', 'Ой, а можно посмотреть?', 'Мне всё интересно!'],
+  gentle: ['Ты большой молодец, честно.', 'Обнимаю лапками 🤗', 'Я в тебя верю.'],
+  sassy: ['Ну ты и герой дня, да?', 'Ладно, признаю: ты крут.', 'Я бы сам так не смог. Наверное. 😏'],
+};
+
 const STAGE_LABEL = { egg: '🥚 Яйцо', baby: '👶 Малыш', teen: '🧒 Подросток', adult: '🌟 Взрослый' };
+const MOOD_FACES = {
+  happy: { emoji: '😊', label: 'Счастлив' },
+  proud: { emoji: '😌', label: 'Гордится' },
+  focused: { emoji: '🙂', label: 'Норм' },
+  idle: { emoji: '😐', label: 'Скучает' },
+  sleepy: { emoji: '😴', label: 'Дремлет' },
+  sleeping: { emoji: '💤', label: 'Спит' },
+};
 
 /**
  * Living Companion v3:
@@ -53,6 +93,7 @@ export default function Companion({ tick = 0, onEvolve, haptic, playSound }) {
   const [hearts, setHearts] = useState([]);
   const [phraseIdx, setPhraseIdx] = useState(0);
   const [emojiMap, setEmojiMap] = useState({});
+  const [adventureBusy, setAdventureBusy] = useState(false);
   const petTimer = useRef(null);
   const prevStage = useRef(null);
   const heartId = useRef(0);
@@ -107,21 +148,60 @@ export default function Companion({ tick = 0, onEvolve, haptic, playSound }) {
   if (!data) return null;
 
   const colors = TYPE_COLORS[data.type] || TYPE_COLORS.spark;
-  const moodEmoji = data.mood >= 70 ? '😊' : data.mood >= 40 ? '😐' : '😴';
-  const moodLabel = data.mood >= 70 ? 'Счастлив' : data.mood >= 40 ? 'Норм' : 'Дремлет';
+  const hour = new Date().getHours();
+  const isNight = hour >= 22 || hour < 6;
+  const onAdventure = data.adventure && data.adventure.status === 'active';
+
+  // 6 состояний (Sprout): сон > приключение > ДР > стадии настроения
+  const face = isNight ? 'sleeping'
+    : data.adventure?.status === 'active' ? 'focused'
+    : data.mood >= 70 ? 'happy'
+    : data.mood >= 55 ? 'proud'
+    : data.mood >= 40 ? 'focused'
+    : data.mood >= 20 ? 'idle'
+    : 'sleepy';
+  const moodInfo = MOOD_FACES[face];
+
   const stageProgressTotal = data.xpToNext - data.xpForThis;
   const xpProgress = stageProgressTotal > 0 ? Math.round(((data.xp - data.xpForThis) / stageProgressTotal) * 100) : 0;
 
   const phrasePool = data.stage === 'egg' ? PHRASES.egg
-    : data.mood >= 70 ? PHRASES.happy
-    : data.mood >= 40 ? PHRASES.ok
-    : PHRASES.sleepy;
-  const phrase = phrasePool[phraseIdx % phrasePool.length];
+    : isNight ? PHRASES.sleeping
+    : data.isBirthday ? PHRASES.birthday
+    : onAdventure ? PHRASES.adventure
+    : PHRASES[face] || PHRASES.focused;
+  const flavor = (TRAIT_FLAVOR[data.trait] || [])[phraseIdx % 3];
+  const phrase = phraseIdx % 2 === 0 ? phrasePool[phraseIdx % phrasePool.length] : (flavor || phrasePool[(phraseIdx + 1) % phrasePool.length]);
 
   const nearHatch = data.stage === 'egg' && xpProgress >= 80;
-  // Вылупление на уровне 2 (50 XP): осталось N отметок по 15 XP
   const checksToHatch = data.stage === 'egg' ? Math.max(1, Math.ceil((50 - data.xp) / 15)) : 0;
   const size = data.stage === 'egg' ? 60 : data.stage === 'baby' ? 68 : data.stage === 'teen' ? 76 : 84;
+
+  const startAdventure = async (e) => {
+    e.stopPropagation();
+    setAdventureBusy(true);
+    try {
+      await api.startAdventure();
+      haptic?.('medium');
+      playSound?.('pop');
+      load();
+    } catch (err) { alert('❌ ' + err.message); }
+    setAdventureBusy(false);
+  };
+  const claimAdventure = async (e) => {
+    e.stopPropagation();
+    setAdventureBusy(true);
+    try {
+      const res = await api.claimAdventure();
+      alert(`🎁 ${data.name} принёс: ${res.rewardLabel}`);
+      haptic?.('heavy');
+      playSound?.('success');
+      load();
+    } catch (err) { alert('❌ ' + err.message); }
+    setAdventureBusy(false);
+  };
+  const advReturns = data.adventure?.returnsAt ? new Date(data.adventure.returnsAt) : null;
+  const advLeftMin = advReturns ? Math.max(0, Math.ceil((advReturns - Date.now()) / 60000)) : 0;
 
   return (
     <div className="companion-card glass" onClick={handlePet}>
@@ -133,10 +213,15 @@ export default function Companion({ tick = 0, onEvolve, haptic, playSound }) {
           transform: pet ? 'scale(1.12) rotate(-3deg)' : 'scale(1)',
           transition: 'transform 0.35s cubic-bezier(0.34, 1.56, 0.64, 1)',
         }}>
+          {/* Домик (фон-слот) */}
+          {emojiMap[data.equipped?.home] && (
+            <div className="companion-home">{emojiMap[data.equipped.home]}</div>
+          )}
           <div className={nearHatch ? 'egg-wobble' : undefined}>
-            <Creature type={data.type} stage={data.stage} blink={blink} mood={data.mood} size={size} colors={colors} equipped={data.equipped} emojiMap={emojiMap} />
+            <Creature type={data.type} stage={data.stage} blink={isNight ? true : blink} mood={data.mood} size={size} colors={colors} equipped={data.equipped} emojiMap={emojiMap} />
           </div>
-          {/* Сердечки на тап */}
+          {isNight && <span className="pet-zzz">💤</span>}
+          {data.isBirthday && <span className="pet-birthday">🎂</span>}
           {hearts.map((h) => (
             <span key={h.id} className="pet-heart" style={{ '--hx': `${h.x}px`, '--hd': `${h.d}s` }}>💜</span>
           ))}
@@ -146,7 +231,7 @@ export default function Companion({ tick = 0, onEvolve, haptic, playSound }) {
       <div className="companion-info">
         <div className="companion-name-row">
           <strong>{data.name}</strong>
-          <span className="companion-mood">{moodEmoji} {moodLabel}</span>
+          <span className="companion-mood">{moodInfo.emoji} {moodInfo.label}</span>
         </div>
         <div className="companion-level">
           Lv {data.level} · {STAGE_LABEL[data.stage]}
@@ -158,6 +243,27 @@ export default function Companion({ tick = 0, onEvolve, haptic, playSound }) {
           <div className="companion-xp-fill" style={{ width: `${xpProgress}%` }} />
         </div>
         <span className="companion-xp-text">{data.xp} / {data.xpToNext} XP</span>
+
+        {/* Приключение (appointment-цикл) */}
+        {data.stage !== 'egg' && (
+          <div className="adventure-row">
+            {!data.adventure && (
+              <button className="adventure-btn" onClick={startAdventure} disabled={adventureBusy}>
+                🗺️ В приключение!
+              </button>
+            )}
+            {data.adventure?.status === 'active' && (
+              <div className="adventure-status">
+                🗺️ В пути{advLeftMin > 0 ? ` · вернётся через ${advLeftMin >= 60 ? `${Math.floor(advLeftMin / 60)} ч ${advLeftMin % 60} м` : `${advLeftMin} мин`}` : ''}
+              </div>
+            )}
+            {data.adventure?.canClaim && (
+              <button className="adventure-btn claim" onClick={claimAdventure} disabled={adventureBusy}>
+                🎁 Забрать находку!
+              </button>
+            )}
+          </div>
+        )}
       </div>
     </div>
   );

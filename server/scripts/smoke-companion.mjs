@@ -121,7 +121,7 @@ check('Пустой PUT → 400', r.status === 400, `status=${r.status}`);
 // ---------- 6. Магазин ----------
 r = await call('GET', '/api/companion/shop');
 const items = r.json || [];
-check('Магазин: 11 предметов', items.length === 11, `len=${items.length}`);
+check('Магазин: 30 предметов', items.length === 30, `len=${items.length}`);
 const cats = new Set(items.map((i) => i.category));
 check('Категории: hat/glasses/accessory', cats.has('hat') && cats.has('glasses') && cats.has('accessory'), [...cats].join(','));
 
@@ -130,18 +130,20 @@ await pool.query(`UPDATE users SET bonus_balance = 0 WHERE id = $1`, [USER.id]);
 r = await call('POST', '/api/companion/buy', { body: { code: 'hat_crown' } });
 check('Покупка без бонусов → 402', r.status === 402, `status=${r.status}`);
 
-// Грантим денег, покупаем
+// Грантим денег; ждём оседания асинхронных наград (миссии/сюрпризы), затем относительные замеры
 await pool.query(`UPDATE users SET bonus_balance = 1000 WHERE id = $1`, [USER.id]);
+await new Promise((rr) => setTimeout(rr, 600));
+const balPre = Number((await pool.query(`SELECT bonus_balance b FROM users WHERE id=$1`, [USER.id])).rows[0].b);
 r = await call('POST', '/api/companion/buy', { body: { code: 'hat_crown' } });
 check('Покупка hat_crown (200) → ok', r.json?.ok === true, JSON.stringify(r.json));
-let bal = (await pool.query(`SELECT bonus_balance b FROM users WHERE id=$1`, [USER.id])).rows[0].b;
-check('Баланс списан: 1000→800', Number(bal) === 800, `bal=${bal}`);
+let bal = Number((await pool.query(`SELECT bonus_balance b FROM users WHERE id=$1`, [USER.id])).rows[0].b);
+check('Баланс списан ровно на 200', bal === balPre - 200, `pre=${balPre} now=${bal}`);
 
 // Повторная покупка — не списывает
 r = await call('POST', '/api/companion/buy', { body: { code: 'hat_crown' } });
 check('Повторная покупка → alreadyOwned, без списания', r.json?.ok === true && r.json?.alreadyOwned === true, JSON.stringify(r.json));
-bal = (await pool.query(`SELECT bonus_balance b FROM users WHERE id=$1`, [USER.id])).rows[0].b;
-check('Баланс не изменился (800)', Number(bal) === 800, `bal=${bal}`);
+bal = Number((await pool.query(`SELECT bonus_balance b FROM users WHERE id=$1`, [USER.id])).rows[0].b);
+check('Баланс не изменился', bal === balPre - 200, `bal=${bal}`);
 
 // Инвентарь
 r = await call('GET', '/api/companion/inventory');
@@ -217,13 +219,15 @@ check('АНТИ-ФАРМ: skip→skip = один штраф (mood 47, не 44)',
 await pool.query(`UPDATE users SET companion_xp=0, companion_mood=50, xp=0, bonus_balance=100, total_checkins=0 WHERE id=$1`, [USER.id]);
 await call('POST', `/api/habits/${habitB}/log`, { body: { status: 'done', date: isoDaysAgo(3) } });
 u1 = (await pool.query(`SELECT companion_xp cx, companion_mood cm, xp ux, bonus_balance bb, total_checkins tc FROM users WHERE id=$1`, [USER.id])).rows[0];
-check('unlog-подготовка: после done cx=15,cm=58,ux=10,bb=101,tc=1',
-  Number(u1.cx) === 15 && Number(u1.cm) === 58 && Number(u1.ux) === 10 && Number(u1.bb) === 101 && Number(u1.tc) === 1, JSON.stringify(u1));
+const uxBefore = Number(u1.ux);
+const bbBefore = Number(u1.bb);
+check('unlog-подготовка: после done cx=15,cm=58,ux>=10,bb>=101(сюрприз?),tc=1',
+  Number(u1.cx) === 15 && Number(u1.cm) === 58 && uxBefore >= 10 && bbBefore >= 101 && Number(u1.tc) === 1, JSON.stringify(u1));
 r = await call('POST', `/api/habits/${habitB}/unlog`, { body: { date: isoDaysAgo(3) } });
 check('unlog: rolledBack=true', r.json?.rolledBack === true, JSON.stringify(r.json));
 u1 = (await pool.query(`SELECT companion_xp cx, companion_mood cm, xp ux, bonus_balance bb, total_checkins tc FROM users WHERE id=$1`, [USER.id])).rows[0];
-check('unlog: полный откат cx=0,cm=50,ux=0,bb=100,tc=0',
-  Number(u1.cx) === 0 && Number(u1.cm) === 50 && Number(u1.ux) === 0 && Number(u1.bb) === 100 && Number(u1.tc) === 0, JSON.stringify(u1));
+check('unlog: полный откат cx=0,cm=50,ux=uxBefore-10,bb=bbBefore-1,tc=0',
+  Number(u1.cx) === 0 && Number(u1.cm) === 50 && Number(u1.ux) === uxBefore - 10 && Number(u1.bb) === bbBefore - 1 && Number(u1.tc) === 0, JSON.stringify(u1));
 
 // unlog skip → НЕ трогает награды
 await call('POST', `/api/habits/${habitB}/log`, { body: { status: 'skip', date: isoDaysAgo(2) } });
@@ -273,6 +277,134 @@ console.log('   [debug decay] done=', dbg.done, 'done_days=', dbg.done_days);
 await decayCompanionMood(USER.id);
 let cm = Number((await pool.query(`SELECT companion_mood m FROM users WHERE id=$1`, [USER.id])).rows[0].m);
 check('DECAY: 3 done за 1 done-день (skip-день не в знаменателе) → target=100 → mood 0→20', cm === 20, `m=${cm}`);
+
+// ---------- 14. ЭТАП-D: МИЛСТОУНЫ (hatch → birthday; эволюция → подарок) ----------
+console.log('\n--- ЭТАП D: милстоуны / приключения / бесплатка ---');
+await pool.query(`UPDATE users SET companion_xp=0, companion_stage='egg', companion_birthday=NULL WHERE id=$1`, [USER.id]);
+const hMile = (await call('POST', '/api/habits', { body: { title: 'Милстоун', emoji: '🎯' } })).json.id;
+let mres = null;
+for (let i = 0; i < 4; i++) {
+  mres = await call('POST', `/api/habits/${hMile}/log`, { body: { status: 'done', date: isoDaysAgo(10 + i) } });
+  if (mres.json?.evolution) break;
+}
+check('МИЛСТОУН: вылупление на 4-й отметке → evolution.stage=baby + подарок',
+  mres.json?.evolution?.stage === 'baby' && !!mres.json?.evolution?.giftLabel, JSON.stringify(mres.json?.evolution));
+const bd = (await pool.query(`SELECT companion_birthday b FROM users WHERE id=$1`, [USER.id])).rows[0].b;
+check('МИЛСТОУН: birthday записан (= сегодня)', bd && new Date(bd).toDateString() === new Date().toDateString(), `bd=${bd}`);
+r = await call('GET', '/api/companion');
+check('GET: isBirthday=true в день вылупления, stage=baby', r.json?.isBirthday === true && r.json?.stage === 'baby', JSON.stringify({ b: r.json?.isBirthday, s: r.json?.stage }));
+
+// Эволюция teen (800 XP): подарок + companion_stage
+await pool.query(`UPDATE users SET companion_xp=800 WHERE id=$1`, [USER.id]);
+mres = await call('POST', `/api/habits/${hMile}/log`, { body: { status: 'done', date: isoDaysAgo(20) } });
+check('МИЛСТОУН: teen-эволюция при xp>800 → evolution.stage=teen', mres.json?.evolution?.stage === 'teen', JSON.stringify(mres.json?.evolution));
+
+// Повторный лог без перехода → evolution=null
+mres = await call('POST', `/api/habits/${hMile}/log`, { body: { status: 'done', date: isoDaysAgo(21) } });
+check('МИЛСТОУН: без перехода → evolution=null', mres.json?.evolution === null || !mres.json?.evolution, JSON.stringify(mres.json?.evolution));
+
+// ---------- 15. ЭТАП-D: ПРИКЛЮЧЕНИЯ ----------
+await pool.query(`UPDATE users SET companion_xp=100 WHERE id=$1`, [USER.id]);
+r = await call('GET', '/api/companion');
+check('ADV: adventure=null, shopBonusAvailable=true', r.json?.adventure === null && r.json?.shopBonusAvailable === true, JSON.stringify({ a: r.json?.adventure, s: r.json?.shopBonusAvailable }));
+
+r = await call('POST', '/api/companion/adventure/start');
+check('ADV: старт → returnsAt через ~6ч', r.json?.ok === true && new Date(r.json.returnsAt) > new Date(), JSON.stringify(r.json));
+r = await call('POST', '/api/companion/adventure/start');
+check('ADV: повторный старт → 409', r.status === 409, `s=${r.status}`);
+r = await call('POST', '/api/companion/adventure/claim');
+check('ADV: ранний claim → 400 (ещё в пути)', r.status === 400, `s=${r.status}`);
+
+// Тайм-тревел: returns_at в прошлое → claim работает
+await pool.query(`UPDATE adventures SET returns_at = NOW() - INTERVAL '1 hour' WHERE user_id=$1 AND status='active'`, [USER.id]);
+r = await call('POST', '/api/companion/adventure/claim');
+check('ADV: claim после возврата → rewardLabel', r.json?.ok === true && typeof r.json?.rewardLabel === 'string' && r.json.rewardLabel.length > 0, JSON.stringify(r.json));
+r = await call('POST', '/api/companion/adventure/claim');
+check('ADV: повторный claim → 404 (нет активного)', r.status === 404, `s=${r.status}`);
+r = await call('GET', '/api/companion');
+check('ADV: после claim adventure=null (новое можно)', r.json?.adventure === null, JSON.stringify(r.json?.adventure));
+
+// Яйцо не ходит в приключения
+await pool.query(`UPDATE users SET companion_xp=10, companion_stage='egg' WHERE id=$1`, [USER.id]);
+r = await call('POST', '/api/companion/adventure/start');
+check('ADV: яйцо → 400 с подсказкой', r.status === 400, `s=${r.status}`);
+await pool.query(`UPDATE users SET companion_xp=100, companion_stage='baby' WHERE id=$1`, [USER.id]);
+
+// ---------- 16. ЭТАП-D: ЕЖЕДНЕВНАЯ БЕСПЛАТКА ----------
+r = await call('POST', '/api/companion/shop/daily-bonus');
+check('BONUS: первый визит → +10', r.json?.ok === true && r.json?.amount === 10, JSON.stringify(r.json));
+r = await call('POST', '/api/companion/shop/daily-bonus');
+check('BONUS: повтор в тот же день → 409', r.status === 409, `s=${r.status}`);
+r = await call('GET', '/api/companion');
+check('BONUS: shopBonusAvailable=false после получения', r.json?.shopBonusAvailable === false, `s=${r.json?.shopBonusAvailable}`);
+
+// ---------- 17. ЭТАП-D: черта характера ----------
+r = await call('PUT', '/api/companion', { body: { trait: 'sassy' } });
+check('TRAIT: PUT sassy → ok', r.json?.ok === true, JSON.stringify(r.json));
+r = await call('GET', '/api/companion');
+check('TRAIT: читается sassy', r.json?.trait === 'sassy', r.json?.trait);
+r = await call('PUT', '/api/companion', { body: { trait: 'evil' } });
+check('TRAIT: невалидная черта → 400', r.status === 400, `s=${r.status}`);
+
+// ---------- 18. ЭТАП-D: МАГАЗИН 30 предметов + домик ----------
+r = await call('GET', '/api/companion/shop');
+const shopItems = r.json || [];
+check('SHOP: 30 предметов', shopItems.length === 30, `len=${shopItems.length}`);
+const homeItems = shopItems.filter((i) => i.category === 'home');
+check('SHOP: 14 домиков в категории home', homeItems.length === 14, `home=${homeItems.length}`);
+await pool.query(`UPDATE users SET bonus_balance=1000 WHERE id=$1`, [USER.id]);
+await call('POST', '/api/companion/buy', { body: { code: 'home_forest' } });
+r = await call('POST', '/api/companion/equip', { body: { code: 'home_forest' } });
+check('HOME: equip домика → equipped.home', r.json?.equipped?.home === 'home_forest', JSON.stringify(r.json?.equipped));
+
+// ---------- 19. ЭТАП-D: ДАШБОРДЫ-ЦИФРЫ (сверка Stats/Recap с SQL-расчётом) ----------
+console.log('\n--- ЭТАП D: дашборды ---');
+// Чистая вселенная: удаляем ВСЕ привычки юзера (каскадно чистит логи) и создаём ровно 3
+await pool.query(`DELETE FROM habits WHERE user_id=$1`, [USER.id]);
+const dh1 = (await call('POST', '/api/habits', { body: { title: 'Д1', emoji: '1️⃣' } })).json.id;
+const dh2 = (await call('POST', '/api/habits', { body: { title: 'Д2', emoji: '2️⃣' } })).json.id;
+const dh3 = (await call('POST', '/api/habits', { body: { title: 'Д3', emoji: '3️⃣' } })).json.id;
+// 3 дня: позавчера 3/3 (perfect), вчера 1/3 (skip), сегодня 2/3
+const writes = [];
+for (const [di, statuses] of [[2, ['done', 'done', 'done']], [1, ['done', 'skip', null]], [0, ['done', 'done', null]]]) {
+  const habitsForDay = [dh1, dh2, dh3];
+  statuses.forEach((st, idx) => {
+    if (st) writes.push(call('POST', `/api/habits/${habitsForDay[idx]}/log`, { body: { status: st, date: isoDaysAgo(di) } }));
+  });
+}
+await Promise.all(writes);
+await new Promise((res) => setTimeout(res, 800));
+
+r = await call('GET', '/api/stats?days=7');
+const sqlDone = Number((await pool.query(`SELECT COUNT(*) c FROM habit_logs WHERE user_id=$1 AND status='done' AND log_date >= CURRENT_DATE - 2`, [USER.id])).rows[0].c);
+check('DASH stats: doneToday = 2 (SQL-сверка)', r.json?.doneToday === 2, `api=${r.json?.doneToday}`);
+check('DASH stats: totalHabits = 3', r.json?.totalHabits === 3, `api=${r.json?.totalHabits}`);
+check('DASH stats: perfectDays = 1 (только позавчера 3/3)', r.json?.perfectDays === 1, `api=${r.json?.perfectDays}`);
+check('DASH stats: currentPerfectStreak = 0 (сегодня 2/3 — серия порвана)', r.json?.currentPerfectStreak === 0, `api=${r.json?.currentPerfectStreak}`);
+check('DASH stats: perDay длиной 7, последний done=2/3', (r.json?.perDay || []).length === 7 && r.json.perDay[6]?.done === 2 && r.json.perDay[6]?.total === 3, JSON.stringify(r.json?.perDay?.[6]));
+// Rate — за ВСЁ 7-дневное окно: 6 выполнено из 21 ожидания (3 привычки × 7 дней)
+const expectedRate = Math.round((6 / 21) * 100);
+check(`DASH stats: completionRate = ${expectedRate}% (окно 7 дней: 6/21)`, r.json?.completionRate === expectedRate, `api=${r.json?.completionRate}`);
+
+// Серия идеальных: дорисуем сегодня 3/3 → currentPerfectStreak станет 1 (позавчера+сегодня? вчера порвано → 1)
+await call('POST', `/api/habits/${dh3}/log`, { body: { status: 'done', date: isoDaysAgo(0) } });
+r = await call('GET', '/api/stats?days=7');
+check('DASH stats: после 3/3 сегодня → currentPerfectStreak=1 (вчера рвало)', r.json?.currentPerfectStreak === 1, `api=${r.json?.currentPerfectStreak}`);
+
+// Recap
+r = await call('GET', '/api/recap');
+const sqlDoneNow = Number((await pool.query(`SELECT COUNT(*) c FROM habit_logs WHERE user_id=$1 AND status='done' AND log_date >= CURRENT_DATE - 6`, [USER.id])).rows[0].c);
+check('DASH recap: totalCheckins = SQL-сверка (7 done после добавки 3/3)', r.json?.totalCheckins === sqlDoneNow && sqlDoneNow === 7, `api=${r.json?.totalCheckins} sql=${sqlDoneNow}`);
+check('DASH recap: activeDays = 3, perfectDays = 2', r.json?.activeDays === 3 && r.json?.perfectDays === 2, JSON.stringify({ a: r.json?.activeDays, p: r.json?.perfectDays }));
+check('DASH recap: weekRange.from = 6 дней назад', r.json?.weekRange?.from === isoDaysAgo(6), `${r.json?.weekRange?.from} vs ${isoDaysAgo(6)}`);
+
+// Home hero цифры (GET /habits — то, из чего фронт строит hero)
+r = await call('GET', '/api/habits');
+const todayIsoStr = new Date().toISOString().slice(0, 10);
+const doneApi = (r.json || []).filter((h) => (h.logs || []).some((l) => l.date === todayIsoStr && l.status === 'done')).length;
+check('DASH home: hero 3/3 выполнено сегодня (фронт посчитает doneApi=3 из этих же данных)', doneApi === 3 && r.json.length === 3, `done=${doneApi} total=${r.json.length}`);
+const streaksOk = (r.json || []).every((h) => typeof h.streak === 'number');
+check('DASH home: у каждой привычки числовой streak', streaksOk);
 
 // ---------- ИТОГ ----------
 console.log('\n========== ПИТОМЕЦ: ИТОГ ==========');
