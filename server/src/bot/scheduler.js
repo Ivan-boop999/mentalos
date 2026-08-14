@@ -155,8 +155,10 @@ export function startScheduler(bot) {
   // ===== Companion mood decay: раз в час настроение дрейфует к реальному прогрессу =====
   cron.schedule('15 * * * *', async () => {
     try {
+      // ФИКС-A8: ORDER BY — самые «проголодавшиеся» первыми (нет голодания при >500 юзеров)
       const { rows: users } = await pool.query(
-        `SELECT id FROM users WHERE last_mood_decay IS NULL OR last_mood_decay < NOW() - INTERVAL '20 hours' LIMIT 500`,
+        `SELECT id FROM users WHERE last_mood_decay IS NULL OR last_mood_decay < NOW() - INTERVAL '20 hours'
+         ORDER BY last_mood_decay ASC NULLS FIRST LIMIT 500`,
       );
       for (const u of users) {
         await decayCompanionMood(u.id);
@@ -167,8 +169,105 @@ export function startScheduler(bot) {
     }
   });
 
+  // ===== ГОЛОС ПИТОМЦА (Finch-паттерн: тёплые сообщения от имени питомца, zero-guilt) =====
+
+  // Утро (9:05): питомец проснулся у тех, кто был активен за последние 3 дня
+  cron.schedule('5 9 * * *', async () => {
+    await petBroadcast(bot, 'morning', async () => {
+      const { rows } = await pool.query(
+        `SELECT u.id, u.first_name, u.companion_name, u.companion_type
+         FROM users u
+         WHERE EXISTS (SELECT 1 FROM habit_logs l WHERE l.user_id = u.id AND l.log_date >= CURRENT_DATE - 3)`,
+      );
+      return rows;
+    }, (u) => ({
+      text: `${petTypeEmoji(u.companion_type)} *${u.companion_name}* просыпается и потягивается!\n\n${randomOf([
+        '«Доброе утро! Я видел сон про гору выполненных привычек ✨»',
+        '«Утро — самое вкусное время для новых отметок!»',
+        '«Я уже расчесал перышки. Пора за дело? 🌱»',
+        '«Сегодня пахнет отличным днём. Чувствуешь?»',
+      ])}`,
+    }));
+  });
+
+  // Вечер (20:05): мягкое напоминание тем, у кого есть невыполненные на сегодня
+  cron.schedule('5 20 * * *', async () => {
+    await petBroadcast(bot, 'evening', async () => {
+      const { rows } = await pool.query(
+        `SELECT u.id, u.first_name, u.companion_name, u.companion_type,
+                (SELECT COUNT(*) FROM habits h WHERE h.user_id = u.id AND h.archived = FALSE
+                  AND NOT EXISTS (SELECT 1 FROM habit_logs l WHERE l.habit_id = h.id AND l.user_id = u.id AND l.log_date = CURRENT_DATE AND l.status = 'done')) AS remaining
+         FROM users u
+         WHERE EXISTS (SELECT 1 FROM habit_logs l WHERE l.user_id = u.id AND l.log_date >= CURRENT_DATE - 3)`,
+      );
+      return rows.filter((r) => Number(r.remaining) > 0);
+    }, (u) => ({
+      text: `${petTypeEmoji(u.companion_type)} *${u.companion_name}* зевает и смотрит на тебя\n\n${randomOf([
+        `«Ещё ${u.remaining} ${plural(Number(u.remaining), ['привычка', 'привычки', 'привычек'])} ждёт нас сегодня. Закроем день красиво?»`,
+        '«Я постелил нам плащик для вечерних подвигов ✨»',
+        '«Пара отметок до идеального дня. Но если что — завтра тоже хороший день 💜»',
+      ])}`,
+    }));
+  });
+
+  // Возвращение (14:05): питомец скучает, если юзера не было >48ч (без вины, с радостью)
+  cron.schedule('5 14 * * *', async () => {
+    await petBroadcast(bot, 'comeback', async () => {
+      const { rows } = await pool.query(
+        `SELECT u.id, u.first_name, u.companion_name, u.companion_type
+         FROM users u
+         WHERE u.total_checkins > 0
+           AND NOT EXISTS (SELECT 1 FROM habit_logs l WHERE l.user_id = u.id AND l.log_date >= CURRENT_DATE - 2)`,
+      );
+      return rows;
+    }, (u) => ({
+      text: `${petTypeEmoji(u.companion_type)} *${u.companion_name}* машет лапкой\n\n${randomOf([
+        '«Я тебя не виню — просто скучаю. Зайди расскажешь, как дела? 💜»',
+        '«Я все эти дни смотрел в окошко и ждал тебя 🌤️»',
+        '«Перерывы — это нормально. Я никуда не денусь!»',
+      ])}`,
+    }));
+  });
+
   // ===== Автозавершение зависших дуэлей (ежедневно в 21:00) =====
   cron.schedule('0 21 * * *', async () => {
     await autoCompleteDuels();
   });
+}
+
+/** Рассылка «голоса питомца» с дедупликацией по (user, date, kind) */
+async function petBroadcast(bot, kind, fetchUsers, buildMsg) {
+  try {
+    const users = await fetchUsers();
+    for (const u of users) {
+      const uid = Number(u.id);
+      const { rows: dup } = await pool.query(
+        `SELECT 1 FROM pet_notified WHERE user_id = $1 AND date = CURRENT_DATE AND kind = $2`, [uid, kind],
+      );
+      if (dup.length) continue;
+      try {
+        const { text } = buildMsg(u);
+        await bot.sendMessage(uid, `${text}${u.first_name ? `\n\n_(для ${u.first_name})_` : ''}`, {
+          parse_mode: 'Markdown',
+          reply_markup: process.env.WEBAPP_URL
+            ? { reply_markup: { inline_keyboard: [[{ text: '🧠 Открыть MentalOS', web_app: { url: process.env.WEBAPP_URL } }]] } }
+            : {},
+        });
+      } catch (e) { /* юзер заблокировал бота — пропускаем */ }
+      await pool.query(`INSERT INTO pet_notified (user_id, date, kind) VALUES ($1, CURRENT_DATE, $2) ON CONFLICT DO NOTHING`, [uid, kind]);
+    }
+  } catch (err) {
+    console.error(`petBroadcast(${kind}):`, err.message);
+  }
+}
+
+function petTypeEmoji(t) {
+  return { spark: '✨', leaf: '🌿', drop: '💧', flame: '🔥' }[t] || '✨';
+}
+function randomOf(arr) { return arr[Math.floor(Math.random() * arr.length)]; }
+function plural(n, forms) {
+  const n10 = n % 10, n100 = n % 100;
+  if (n10 === 1 && n100 !== 11) return forms[0];
+  if (n10 >= 2 && n10 <= 4 && (n100 < 10 || n100 >= 20)) return forms[1];
+  return forms[2];
 }

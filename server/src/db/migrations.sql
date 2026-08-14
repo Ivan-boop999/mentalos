@@ -152,6 +152,14 @@ CREATE TABLE IF NOT EXISTS buddy_notified (
     PRIMARY KEY (user_id, date)
 );
 
+-- Дедупликация «голоса питомца» (утро/вечер/возвращение — не чаще раза в день)
+CREATE TABLE IF NOT EXISTS pet_notified (
+    user_id         BIGINT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    date            DATE NOT NULL,
+    kind            TEXT NOT NULL,                -- morning | evening | comeback
+    PRIMARY KEY (user_id, date, kind)
+);
+
 -- Кастомизация компаньона (шапки, очки, одежда — покупаются за бонусы)
 CREATE TABLE IF NOT EXISTS companion_items (
     id              SERIAL PRIMARY KEY,
@@ -279,6 +287,14 @@ CREATE INDEX IF NOT EXISTS idx_buddies_user ON buddies(user_id);
 CREATE INDEX IF NOT EXISTS idx_buddies_buddy ON buddies(buddy_id);
 CREATE INDEX IF NOT EXISTS idx_missions_user_date ON missions(user_id, mission_date);
 CREATE INDEX IF NOT EXISTS idx_duels_active ON duels(challenger_id, opponent_id) WHERE status IN ('pending', 'active');
+
+-- ФИКС-A10: целостность инвентаря — FK на каталог предметов
+DO $$ BEGIN
+    IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'user_items_item_code_fkey') THEN
+        ALTER TABLE user_items ADD CONSTRAINT user_items_item_code_fkey
+            FOREIGN KEY (item_code) REFERENCES companion_items(code) ON DELETE CASCADE;
+    END IF;
+END $$;
 
 -- ===== Seed companion_items =====
 INSERT INTO companion_items (code, title, category, emoji, price, sort_order) VALUES

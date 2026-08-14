@@ -1216,3 +1216,44 @@ select:focus-visible {
 .tree-health-fill { height: 100%; background: linear-gradient(90deg, var(--success), var(--success)); border-radius: var(--radius-full); transition: width 0.8s var(--ease-smooth); }
 .tree-health-text { font-size: var(--text-caption); color: var(--text-muted); font-weight: var(--fw-semibold); }
 .tree-leaf-streak { font-size: var(--text-caption); color: var(--warning); font-weight: var(--fw-bold); margin-right: var(--space-2); }
+
+/* ===== Companion v3: пузырь речи, сердечки, wobble яйца ===== */
+.companion-stage-wrap { position: relative; flex-shrink: 0; }
+.companion-bubble {
+  position: absolute; top: -14px; left: 50%; transform: translateX(-50%);
+  background: var(--card); border: 1px solid var(--border);
+  border-radius: var(--radius-md) var(--radius-md) var(--radius-md) 4px;
+  padding: 6px 12px;
+  font-size: var(--text-caption); font-weight: var(--fw-medium);
+  color: var(--text-secondary);
+  white-space: nowrap; max-width: 220px; overflow: hidden; text-overflow: ellipsis;
+  box-shadow: var(--shadow-sm);
+  animation: bubbleIn 0.4s var(--ease-spring);
+  z-index: 2;
+}
+@keyframes bubbleIn { from { opacity: 0; transform: translateX(-50%) translateY(6px) scale(0.9); } to { opacity: 1; transform: translateX(-50%) translateY(0) scale(1); } }
+
+.pet-heart {
+  position: absolute; left: 50%; top: 30%;
+  font-size: 16px; pointer-events: none;
+  animation: heartFloat 1.2s ease-out forwards;
+  animation-delay: var(--hd, 0s);
+}
+@keyframes heartFloat {
+  0% { opacity: 0; transform: translate(0, 0) scale(0.5); }
+  20% { opacity: 1; }
+  100% { opacity: 0; transform: translate(var(--hx, 0px), -60px) scale(1.2); }
+}
+
+.egg-wobble { animation: eggWobble 0.8s ease-in-out infinite; }
+@keyframes eggWobble {
+  0%, 100% { transform: rotate(0deg); }
+  25% { transform: rotate(-3deg); }
+  75% { transform: rotate(3deg); }
+}
+
+.hatch-hint { color: var(--warning); font-weight: var(--fw-bold); margin-left: var(--space-2); }
+
+.pet-settings { padding: var(--space-4); border-radius: var(--radius-md); margin-bottom: var(--space-4); display: flex; flex-direction: column; gap: var(--space-2); }
+.pet-settings .seg-control { flex-wrap: wrap; }
+.pet-settings .seg-btn { flex: 1 1 40%; font-size: var(--text-caption); padding: var(--space-2); }

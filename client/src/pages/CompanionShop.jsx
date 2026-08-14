@@ -1,26 +1,49 @@
 import { useEffect, useState } from 'react';
 import { api } from '../api/client';
-import { Sparkles } from 'lucide-react';
+import { Sparkles, Save } from 'lucide-react';
+
+const TYPES = [
+  { v: 'spark', label: '✨ Спарк' },
+  { v: 'leaf', label: '🌿 Листик' },
+  { v: 'drop', label: '💧 Капелька' },
+  { v: 'flame', label: '🔥 Огонёк' },
+];
 
 /**
- * Companion Shop — кастомизация компаньона: шапки, очки, аксессуары.
+ * Companion Shop v2: настройки питомца (имя/тип) + магазин с надеть/СНЯТЬ.
  */
 export default function CompanionShopPage() {
   const [shop, setShop] = useState([]);
   const [inv, setInv] = useState({ equipped: {}, owned: [] });
   const [balance, setBalance] = useState(0);
+  const [pet, setPet] = useState({ name: '', type: 'spark', stage: 'egg' });
+  const [nameDraft, setNameDraft] = useState('');
+  const [typeDraft, setTypeDraft] = useState('spark');
+  const [savedMsg, setSavedMsg] = useState('');
 
   const load = async () => {
     try {
-      const [s, i, r] = await Promise.all([api.getCompanionShop(), api.getCompanionInventory(), api.getReferral()]);
+      const [s, i, r, c] = await Promise.all([
+        api.getCompanionShop(), api.getCompanionInventory(), api.getReferral(), api.getCompanion(),
+      ]);
       setShop(s);
       setInv(i);
       setBalance(r.balance);
+      setPet(c);
+      setNameDraft(c.name || '');
+      setTypeDraft(c.type || 'spark');
     } catch {}
   };
   useEffect(() => { load(); }, []);
 
-  const ownedCodes = new Set(inv.owned.map((o) => o.item_code));
+  const savePet = async () => {
+    try {
+      await api.updateCompanion({ name: nameDraft.trim(), type: typeDraft });
+      setSavedMsg('✅ Сохранено');
+      setTimeout(() => setSavedMsg(''), 2000);
+      load();
+    } catch (e) { alert('❌ ' + e.message); }
+  };
 
   const buy = async (code) => {
     if (!confirm('Купить предмет?')) return;
@@ -28,10 +51,12 @@ export default function CompanionShopPage() {
     catch (e) { alert('❌ ' + e.message); }
   };
 
-  const equip = async (code, category) => {
+  const equipToggle = async (code, category) => {
     try { await api.equipCompanionItem(code, category); load(); }
     catch (e) { alert('❌ ' + e.message); }
   };
+
+  const ownedCodes = new Set(inv.owned.map((o) => o.item_code));
 
   const grouped = shop.reduce((acc, item) => { (acc[item.category] ||= []).push(item); return acc; }, {});
   const catLabels = { hat: '🎩 Головные уборы', glasses: '🕶️ Очки', accessory: '✨ Аксессуары' };
@@ -40,8 +65,35 @@ export default function CompanionShopPage() {
     <div className="page companion-shop">
       <div className="cs-hero glass">
         <Sparkles size={28} style={{ color: 'var(--accent)' }} />
-        <h2>Магазин компаньона</h2>
+        <h2>Мой питомец</h2>
         <div className="cs-balance">🪙 {balance}</div>
+      </div>
+
+      {/* НАСТРОЙКИ ПИТОМЦА (имя + тип) */}
+      <div className="pet-settings glass">
+        <h3 className="card-title">Настройки</h3>
+        <label className="field-label">Имя питомца</label>
+        <input
+          className="input"
+          value={nameDraft}
+          onChange={(e) => setNameDraft(e.target.value)}
+          maxLength={20}
+          placeholder="Например: Пушок"
+        />
+        <label className="field-label">Кто он?</label>
+        <div className="seg-control">
+          {TYPES.map((t) => (
+            <button key={t.v} type="button" className={`seg-btn ${typeDraft === t.v ? 'active' : ''}`} onClick={() => setTypeDraft(t.v)}>
+              {t.label}
+            </button>
+          ))}
+        </div>
+        <button className="primary-btn" onClick={savePet} disabled={!nameDraft.trim() || (nameDraft.trim() === pet.name && typeDraft === pet.type)}>
+          <Save size={16} /> {savedMsg || 'Сохранить'}
+        </button>
+        {pet.stage === 'egg' && (
+          <p className="hint">🥚 Питомец ещё в яйце — предметы станут видны после вылупления. Каждая отметка привычки приближает его!</p>
+        )}
       </div>
 
       {Object.entries(grouped).map(([cat, items]) => (
@@ -56,9 +108,9 @@ export default function CompanionShopPage() {
                   <div className="cs-item-emoji">{item.emoji}</div>
                   <div className="cs-item-title">{item.title}</div>
                   {equipped ? (
-                    <button className="cs-btn equipped-btn" disabled>✓ Надето</button>
+                    <button className="cs-btn equipped-btn" onClick={() => equipToggle(item.code, cat)}>Снять</button>
                   ) : owned ? (
-                    <button className="cs-btn equip-btn" onClick={() => equip(item.code, cat)}>Надеть</button>
+                    <button className="cs-btn equip-btn" onClick={() => equipToggle(item.code, cat)}>Надеть</button>
                   ) : (
                     <button className="cs-btn buy-btn" onClick={() => buy(item.code)} disabled={balance < item.price}>
                       🪙 {item.price}

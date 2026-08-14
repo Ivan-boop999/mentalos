@@ -1,6 +1,6 @@
 import { Router } from 'express';
 import pool from '../db/pool.js';
-import { rewardCompanion } from './companion.js';
+import { rewardCompanion, rollbackCompanion } from './companion.js';
 import { updateMissionsOnAction } from './missions.js';
 
 const router = Router();
@@ -287,6 +287,18 @@ router.post('/:id/log', async (req, res) => {
       finalStatus = 'partial';
     }
 
+    // ===== ФИКС-A6 (АНТИ-ФАРМ): предыдущий статус ДО upsert =====
+    const { rows: prevRows } = await pool.query(
+      `SELECT status FROM habit_logs WHERE habit_id = $1 AND user_id = $2 AND log_date = $3`,
+      [habitId, userId, date],
+    );
+    const prevStatus = prevRows[0]?.status || null;
+    // Правила наград (тумблер done↔skip больше не фармит):
+    //   награда за done — только если ПРЕДЫДУЩИЙ статус не 'done'
+    //   штраф за skip/partial — только если ПРЕДЫДУЩИЙ статус не 'skip'/'partial'
+    const grantDone = finalStatus === 'done' && prevStatus !== 'done';
+    const penalize = (finalStatus === 'skip' || finalStatus === 'partial') && prevStatus !== 'skip' && prevStatus !== 'partial';
+
     // upsert отметки
     await pool.query(
       `INSERT INTO habit_logs (habit_id, user_id, log_date, status, value)
@@ -337,39 +349,36 @@ router.post('/:id/log', async (req, res) => {
       }
     }
 
-    // XP и бонусы только за done
+    // XP и бонусы — только на валидный переход статуса (АНТИ-ФАРМ)
     let bonusEarned = 0;
     let xpEarned = 0;
     let leveledUp = null;
-    if (finalStatus === 'skip' || finalStatus === 'partial') {
+    if (penalize) {
       await rewardCompanion(userId, false);
     }
-    if (finalStatus === 'done') {
+    if (grantDone) {
       bonusEarned = 1;
       xpEarned = 10;
       const { rows: before } = await pool.query(`SELECT level FROM users WHERE id = $1`, [userId]);
       const levelBefore = before[0]?.level || 1;
       await pool.query(`UPDATE users SET bonus_balance = bonus_balance + 1, xp = xp + 10, total_checkins = total_checkins + 1 WHERE id = $1`, [userId]);
-      // P0-5 FIX: правильный порядок параметров [userId, amount]
       await pool.query(`INSERT INTO bonus_transactions (user_id, amount, reason) VALUES ($1, $2, 'habit_checkin')`, [userId, 1]);
       await rewardCompanion(userId, true);
-      // P0-1 FIX: миссии прогрессируют
       updateMissionsOnAction(userId, { type: 'checkin', timeOfDay: hRows[0].time_of_day });
       const newLevel = await updateLevel(userId);
       if (newLevel > levelBefore) {
         leveledUp = { from: levelBefore, to: newLevel };
         const lvlBonus = 50 * newLevel;
         await pool.query(`UPDATE users SET bonus_balance = bonus_balance + $1 WHERE id = $2`, [lvlBonus, userId]);
-        // P0-5 FIX: правильный порядок параметров
         await pool.query(`INSERT INTO bonus_transactions (user_id, amount, reason) VALUES ($1, $2, 'level_up')`, [userId, lvlBonus]);
       }
     }
 
-    const newAchievements = finalStatus === 'done' ? await checkAchievements(userId, habitId, streak) : [];
+    const newAchievements = grantDone ? await checkAchievements(userId, habitId, streak) : [];
 
-    // Variable reward (~12% шанс)
+    // Variable reward (~12% шанс) — только на валидное начисление (анти-фарм)
     let surprise = null;
-    if (finalStatus === 'done' && Math.random() < 0.12) {
+    if (grantDone && Math.random() < 0.12) {
       const surprises = [
         { type: 'bonus', amount: 5, label: '🎉 Сюрприз! +5 бонусов' },
         { type: 'bonus', amount: 10, label: '🎁 Удача! +10 бонусов' },
@@ -400,14 +409,38 @@ router.post('/:id/log', async (req, res) => {
   }
 });
 
-/** POST /api/habits/:id/unlog — удалить отметку (снять) */
+/** POST /api/habits/:id/unlog — удалить отметку (с откатом наград, ФИКС-A6) */
 router.post('/:id/unlog', async (req, res) => {
   const userId = req.userId;
   const habitId = Number(req.params.id);
   const date = req.body?.date || new Date().toISOString().slice(0, 10);
   try {
+    // IDOR-проверка: привычка должна принадлежать пользователю
+    const { rows: h } = await pool.query(
+      `SELECT id FROM habits WHERE id = $1 AND user_id = $2 AND archived = FALSE`, [habitId, userId],
+    );
+    if (!h.length) return res.status(404).json({ error: 'Привычка не найдена' });
+
+    // Что снимаем?
+    const { rows: existing } = await pool.query(
+      `SELECT status FROM habit_logs WHERE habit_id = $1 AND user_id = $2 AND log_date = $3`,
+      [habitId, userId, date],
+    );
+    const removedStatus = existing[0]?.status || null;
+
     await pool.query(`DELETE FROM habit_logs WHERE habit_id = $1 AND user_id = $2 AND log_date = $3`, [habitId, userId, date]);
-    res.json({ ok: true, date });
+
+    // Откат наград, если снимали ВЫПОЛНЕННУЮ отметку (парно к начислению)
+    if (removedStatus === 'done') {
+      await pool.query(
+        `UPDATE users SET bonus_balance = GREATEST(0, bonus_balance - 1), xp = GREATEST(0, xp - 10),
+                total_checkins = GREATEST(0, total_checkins - 1) WHERE id = $1`, [userId],
+      );
+      await pool.query(`INSERT INTO bonus_transactions (user_id, amount, reason) VALUES ($1, $2, 'checkin_rollback')`, [userId, -1]);
+      await rollbackCompanion(userId);
+    }
+
+    res.json({ ok: true, date, rolledBack: removedStatus === 'done' });
   } catch (err) {
     console.error('unlog:', err);
     res.status(500).json({ error: 'Ошибка сервера' });
