@@ -98,8 +98,8 @@ r = await call('GET', '/api/companion');
 check('Пол снизу: mood 1−3 → 0', r.json?.mood === 0, `api=${r.json?.mood} db=${floorDb}`);
 await pool.query(`UPDATE users SET companion_mood = 50 WHERE id = $1`, [USER.id]);
 
-// ---------- 4. Стадии эволюции ----------
-for (const [xp, lvl, stage] of [[800, 5, 'baby'], [4050, 10, 'teen'], [9800, 15, 'adult']]) {
+// ---------- 4. Стадии эволюции (Finch-шкала: быстрое вылупление) ----------
+for (const [xp, lvl, stage] of [[50, 2, 'baby'], [800, 5, 'teen'], [4050, 10, 'adult']]) {
   await pool.query(`UPDATE users SET companion_xp = $1 WHERE id = $2`, [xp, USER.id]);
   r = await call('GET', '/api/companion');
   check(`xp=${xp} → level=${lvl}, stage=${stage}`, r.json?.level === lvl && r.json?.stage === stage, `level=${r.json?.level} stage=${r.json?.stage}`);

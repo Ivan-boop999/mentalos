@@ -7,7 +7,11 @@ const TYPES = ['spark', 'leaf', 'drop', 'flame'];
 const CATEGORIES = ['hat', 'glasses', 'accessory'];
 
 function stageOf(level) {
-  return ['egg', 'baby', 'teen', 'adult'][Math.min(3, Math.floor(level / 5))];
+  // Finch-паттерн: БЫСТРОЕ первое вылупление (4 отметки), потом долгий рост
+  if (level <= 1) return 'egg';   // 0–49 XP (до 4-х отметок)
+  if (level < 5) return 'baby';   // 50–799 XP
+  if (level < 10) return 'teen';  // 800–4049 XP
+  return 'adult';                 // 4050+ XP
 }
 
 /** GET /api/companion — состояние питомца */

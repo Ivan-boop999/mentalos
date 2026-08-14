@@ -119,6 +119,8 @@ export default function Companion({ tick = 0, onEvolve, haptic, playSound }) {
   const phrase = phrasePool[phraseIdx % phrasePool.length];
 
   const nearHatch = data.stage === 'egg' && xpProgress >= 80;
+  // Вылупление на уровне 2 (50 XP): осталось N отметок по 15 XP
+  const checksToHatch = data.stage === 'egg' ? Math.max(1, Math.ceil((50 - data.xp) / 15)) : 0;
   const size = data.stage === 'egg' ? 60 : data.stage === 'baby' ? 68 : data.stage === 'teen' ? 76 : 84;
 
   return (
@@ -148,7 +150,9 @@ export default function Companion({ tick = 0, onEvolve, haptic, playSound }) {
         </div>
         <div className="companion-level">
           Lv {data.level} · {STAGE_LABEL[data.stage]}
-          {nearHatch && <span className="hatch-hint">⚡ Скоро вылупление!</span>}
+          {data.stage === 'egg' && (
+            <span className="hatch-hint">🐣 вылупится через ~{checksToHatch} {checksToHatch === 1 ? 'отметку' : 'отметок'}</span>
+          )}
         </div>
         <div className="companion-xp-bar">
           <div className="companion-xp-fill" style={{ width: `${xpProgress}%` }} />
