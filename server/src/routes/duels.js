@@ -103,13 +103,14 @@ router.post('/:id/finish', async (req, res) => {
       [myS, oppS, winnerId, duelId]);
 
     if (winnerId) {
-      // Победитель: возврат своей ставки + выигрыш ставки противника (= ×2 исхода)
+      // ФИКС-A: эскроу платил ТОЛЬКО challenger при создании.
+      // Здесь платит ТОЛЬКО opponent (тот, кто не платил) — zero-sum в обоих исходах:
+      //   challenger выиграл: challenger −w+2w = +w, opponent −w
+      //   opponent выиграл:   opponent −w+2w = +w, challenger уже −w
       await pool.query(`UPDATE users SET bonus_balance = bonus_balance + $1 WHERE id = $2`, [duel.wager * 2, winnerId]);
       await pool.query(`INSERT INTO bonus_transactions (user_id, amount, reason) VALUES ($1, $2, 'duel_win')`, [winnerId, duel.wager * 2]);
-      // Проигравший (оппонент) платит ставку сейчас
-      const loserId = winnerId === duel.challenger_id ? duel.opponent_id : duel.challenger_id;
-      await pool.query(`UPDATE users SET bonus_balance = GREATEST(0, bonus_balance - $1) WHERE id = $2`, [duel.wager, loserId]);
-      await pool.query(`INSERT INTO bonus_transactions (user_id, amount, reason) VALUES ($1, $2, 'duel_loss')`, [loserId, -duel.wager]);
+      await pool.query(`UPDATE users SET bonus_balance = GREATEST(0, bonus_balance - $1) WHERE id = $2`, [duel.wager, duel.opponent_id]);
+      await pool.query(`INSERT INTO bonus_transactions (user_id, amount, reason) VALUES ($1, $2, 'duel_stake')`, [duel.opponent_id, -duel.wager]);
     } else {
       // Ничья — возврат эскроу создателю независимо от того, кто вызвал finish
       await pool.query(`UPDATE users SET bonus_balance = bonus_balance + $1 WHERE id = $2`, [duel.wager, duel.challenger_id]);

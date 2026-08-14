@@ -318,18 +318,23 @@ router.post('/:id/log', async (req, res) => {
       [habitId, userId],
     );
 
-    // P0-2 FIX: передаём comeback_shield ИЛИ streak_insurance
+    // ФИКС-B: щит действует только если он есть у привычки/пользователя (синхронно с GET)
+    const hasShield = hRows[0].comeback_shield || hasInsurance;
     const streakWithShield = calcStreak(logRows, freq, true);
     const streakNoShield = calcStreak(logRows, freq, false);
-    const streak = hasInsurance ? Math.max(streakWithShield, streakNoShield) : streakWithShield;
+    const streak = hasShield ? streakWithShield : streakNoShield;
     if (streak > (hRows[0].best_streak || 0)) {
       await pool.query(`UPDATE habits SET best_streak = $1 WHERE id = $2 AND user_id = $3`, [streak, habitId, userId]);
     }
 
-    // N4 FIX: страховка сгорает ТОЛЬКО когда реально спасла стрик
-    // (с щитом стрик длиннее, чем без — значит был пропущенный день)
-    if (hasInsurance && streakWithShield > streakNoShield) {
-      await pool.query(`UPDATE users SET streak_insurance = FALSE WHERE id = $1`, [userId]);
+    // Щит реально спас стрик — сгорает и comeback_shield, и страховка
+    if (streakWithShield > streakNoShield) {
+      if (hRows[0].comeback_shield) {
+        await pool.query(`UPDATE habits SET comeback_shield = FALSE WHERE id = $1 AND user_id = $2`, [habitId, userId]);
+      }
+      if (hasInsurance) {
+        await pool.query(`UPDATE users SET streak_insurance = FALSE WHERE id = $1`, [userId]);
+      }
     }
 
     // XP и бонусы только за done
