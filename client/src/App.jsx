@@ -42,26 +42,33 @@ export default function App() {
   const [error, setError] = useState('');
   const [modalOpen, setModalOpen] = useState(false);
   const [editingHabit, setEditingHabit] = useState(null);
-  const [achievement, setAchievement] = useState(null);
-  const [levelUp, setLevelUp] = useState(null);
-  const [surprise, setSurprise] = useState(null);
   const [celebrate, setCelebrate] = useState(0);
-  // Очередь тостов: показываем по одному, чтобы не наслаивались
+  // Очередь тостов: показываем по одному, чтобы не наслаивались.
+  // РАУНД-2 ФИКС: useRef вместо stale activeToast — двойной вызов за один tick больше не теряет тосты
   const toastQueue = useRef([]);
+  const showingToast = useRef(false);
   const [activeToast, setActiveToast] = useState(null); // {type, data}
+
+  const processQueue = useCallback(() => {
+    if (showingToast.current) return;
+    const next = toastQueue.current.shift();
+    if (next) {
+      showingToast.current = true;
+      setActiveToast(next);
+    }
+  }, []);
 
   const enqueueToast = useCallback((type, data) => {
     toastQueue.current.push({ type, data });
-    if (!activeToast) {
-      const next = toastQueue.current.shift();
-      setActiveToast(next);
-    }
-  }, [activeToast]);
+    processQueue();
+  }, [processQueue]);
 
   const dequeueToast = useCallback(() => {
-    const next = toastQueue.current.shift();
-    setActiveToast(next || null);
-  }, []);
+    showingToast.current = false;
+    setActiveToast(null);
+    // Показываем следующий в очереди (в следующем tick, чтобы успел скрыться текущий)
+    setTimeout(() => processQueue(), 50);
+  }, [processQueue]);
   const [showBrief, setShowBrief] = useState(false);
   const [buddiesList, setBuddiesList] = useState([]);
 

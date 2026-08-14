@@ -9,6 +9,13 @@ export default function MissionsPage() {
   const load = () => api.getMissions().then(setMissions).catch(() => {}).finally(() => setLoading(false));
   useEffect(() => { load(); }, []);
 
+  // РАУНД-2 ФИКС: re-fetch при возврате на экран (прогресс обновляется после отметок)
+  useEffect(() => {
+    const onFocus = () => load();
+    window.addEventListener('focus', onFocus);
+    return () => window.removeEventListener('focus', onFocus);
+  }, []);
+
   if (loading) return <div className="page"><div className="empty-state">Загрузка…</div></div>;
 
   const done = missions.filter((m) => m.completed).length;

@@ -220,6 +220,7 @@ DO $$ BEGIN ALTER TABLE users ADD COLUMN companion_name TEXT NOT NULL DEFAULT '�
 DO $$ BEGIN ALTER TABLE users ADD COLUMN companion_type TEXT NOT NULL DEFAULT 'spark';      EXCEPTION WHEN duplicate_column THEN NULL; END $$; -- spark|leaf|drop|flame
 DO $$ BEGIN ALTER TABLE users ADD COLUMN companion_xp INTEGER NOT NULL DEFAULT 0;            EXCEPTION WHEN duplicate_column THEN NULL; END $$;
 DO $$ BEGIN ALTER TABLE users ADD COLUMN companion_mood INTEGER NOT NULL DEFAULT 50;         EXCEPTION WHEN duplicate_column THEN NULL; END $$;
+DO $$ BEGIN ALTER TABLE users ADD COLUMN last_mood_decay TIMESTAMPTZ;                          EXCEPTION WHEN duplicate_column THEN NULL; END $$;
 DO $$ BEGIN ALTER TABLE users ADD COLUMN streak_insurance BOOLEAN NOT NULL DEFAULT FALSE;    EXCEPTION WHEN duplicate_column THEN NULL; END $$; -- активная страховка стрика
 DO $$ BEGIN ALTER TABLE users ADD COLUMN companion_equipped JSONB NOT NULL DEFAULT '{}'::jsonb; EXCEPTION WHEN duplicate_column THEN NULL; END $$; -- {hat, glasses, accessory} -- 0-100
 

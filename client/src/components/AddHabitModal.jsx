@@ -34,7 +34,7 @@ export default function AddHabitModal({ onClose, onSubmit, habit = null, allHabi
     onSubmit({
       title: title.trim(), emoji, color,
       frequency: freqType === 'weekly' ? { type: 'weekly', days } : { type: 'daily' },
-      reminderTime: reminder || null,
+      reminderTime: reminder, // пустая строка = убрать напоминание (бэкенд понимает)
       goalType, goalTarget: Number(goalTarget) || 1, goalUnit,
       cue: cue.trim() || null,
       identity: identity.trim() || null,

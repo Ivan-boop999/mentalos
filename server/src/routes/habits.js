@@ -103,14 +103,17 @@ router.post('/', async (req, res) => {
 router.put('/:id', async (req, res) => {
   const userId = req.userId;
   const habitId = Number(req.params.id);
-  const { title, emoji, color, frequency, reminderTime, categoryId,
+  const { title, emoji, color, frequency, categoryId,
     goalType, goalTarget, goalUnit, cue, identity, timeOfDay, stackAfter } = req.body;
+  // РАУНД-2 ФИКС: пустая строка reminderTime = убрать напоминание (не COALESCE-NULL)
+  const reminderTime = req.body?.reminderTime === '' ? null : req.body?.reminderTime ?? undefined;
 
   try {
     const { rows } = await pool.query(
       `UPDATE habits SET
          title = COALESCE($3, title), emoji = COALESCE($4, emoji), color = COALESCE($5, color),
-         frequency = COALESCE($6, frequency), reminder_time = COALESCE($7, reminder_time),
+         frequency = COALESCE($6, frequency),
+         reminder_time = CASE WHEN $7::text = '__NULL__' THEN NULL ELSE COALESCE($7::text::time, reminder_time) END,
          category_id = COALESCE($8, category_id),
          goal_type = COALESCE($9, goal_type), goal_target = COALESCE($10, goal_target),
          goal_unit = COALESCE($11, goal_unit),
@@ -120,7 +123,9 @@ router.put('/:id', async (req, res) => {
        RETURNING id, title, emoji, color, frequency, reminder_time, best_streak,
                  goal_type, goal_target, goal_unit, cue, identity, time_of_day, stack_after`,
       [habitId, userId, title, emoji, color,
-        frequency ? JSON.stringify(frequency) : null, reminderTime ?? null, categoryId ?? null,
+        frequency ? JSON.stringify(frequency) : null,
+        reminderTime === null ? '__NULL__' : reminderTime ?? null,
+        categoryId ?? null,
         goalType ?? null, goalTarget ?? null, goalUnit ?? null,
         cue ?? null, identity ?? null, timeOfDay ?? null, stackAfter ?? null],
     );

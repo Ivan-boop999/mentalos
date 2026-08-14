@@ -1,5 +1,6 @@
 import cron from 'node-cron';
 import pool from '../db/pool.js';
+import { decayCompanionMood } from '../routes/companion.js';
 
 /**
  * Планировщик напоминаний MentalOS.
@@ -147,6 +148,21 @@ export function startScheduler(bot) {
       }
     } catch (err) {
       console.error('Buddy scheduler error:', err.message);
+    }
+  });
+
+  // ===== Companion mood decay: раз в час настроение дрейфует к реальному прогрессу =====
+  cron.schedule('15 * * * *', async () => {
+    try {
+      const { rows: users } = await pool.query(
+        `SELECT id FROM users WHERE last_mood_decay IS NULL OR last_mood_decay < NOW() - INTERVAL '20 hours' LIMIT 500`,
+      );
+      for (const u of users) {
+        await decayCompanionMood(u.id);
+        await pool.query(`UPDATE users SET last_mood_decay = NOW() WHERE id = $1`, [u.id]);
+      }
+    } catch (err) {
+      console.error('Mood decay scheduler error:', err.message);
     }
   });
 }

@@ -37,10 +37,26 @@ router.get('/', async (req, res) => {
     const prevWeekCount = Number(prevWeek[0]?.done || 0);
     const trend = thisWeekCount - prevWeekCount;
 
-    // Идеальные дни (все привычки выполнены)
+    // РАУНД-2 ФИКС: идеальные дни считаем с учётом weekly-расписания
+    // (день идеален, если все ОЖИДАЕМЫЕ в этот день привычки выполнены)
+    const { rows: freqRows } = await pool.query(
+      `SELECT id, frequency FROM habits WHERE user_id = $1 AND archived = FALSE`, [userId],
+    );
+    const freqMap = {};
+    for (const h of freqRows) {
+      freqMap[h.id] = typeof h.frequency === 'string' ? JSON.parse(h.frequency) : h.frequency;
+    }
+    const logsByDate = {};
+    for (const l of logs) logsByDate[l.date] = Number(l.done);
+
     let perfectDays = 0;
-    for (const l of logs) {
-      if (Number(l.done) >= totalHabits && totalHabits > 0) perfectDays++;
+    for (const [dateStr, doneCount] of Object.entries(logsByDate)) {
+      const dow = new Date(dateStr + 'T00:00:00').getDay();
+      const expected = freqRows.filter((h) => {
+        const f = freqMap[h.id];
+        return !f?.days || f.days.includes(dow);
+      }).length;
+      if (expected > 0 && doneCount >= expected) perfectDays++;
     }
 
     // Настроение среднее за неделю

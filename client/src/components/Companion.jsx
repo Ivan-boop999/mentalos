@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { api } from '../api/client';
 
 const TYPE_COLORS = {
@@ -22,9 +22,13 @@ export default function Companion() {
 
   useEffect(() => {
     if (!data) return;
-    const tick = () => { setBlink(true); setTimeout(() => setBlink(false), 160); };
+    let blinkTimer = null;
+    const tick = () => {
+      setBlink(true);
+      blinkTimer = setTimeout(() => setBlink(false), 160);
+    };
     const interval = setInterval(tick, 3500 + Math.random() * 2500);
-    return () => clearInterval(interval);
+    return () => { clearInterval(interval); if (blinkTimer) clearTimeout(blinkTimer); };
   }, [data]);
 
   if (!data) return null;
@@ -34,7 +38,13 @@ export default function Companion() {
   const moodLabel = data.mood >= 70 ? 'Счастлив' : data.mood >= 40 ? 'Норм' : 'Скучает';
   const xpProgress = Math.round(((data.xp - data.xpForThis) / (data.xpToNext - data.xpForThis)) * 100);
 
-  const handlePet = () => { setPet(true); setTimeout(() => setPet(false), 350); };
+  const petTimer = useRef(null);
+  const handlePet = () => {
+    setPet(true);
+    if (petTimer.current) clearTimeout(petTimer.current);
+    petTimer.current = setTimeout(() => setPet(false), 350);
+  };
+  useEffect(() => () => { if (petTimer.current) clearTimeout(petTimer.current); }, []);
   const size = data.stage === 'egg' ? 60 : data.stage === 'baby' ? 68 : data.stage === 'teen' ? 76 : 84;
 
   return (

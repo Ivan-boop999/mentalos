@@ -44,9 +44,18 @@ router.post('/', async (req, res) => {
     );
     if (!buddy.length) return res.status(403).json({ error: 'Можно вызвать только бадди' });
 
-    // Проверяем баланс ставки
+    // Проверяем баланс ставки у ОБОИХ участников
     const { rows: u } = await pool.query(`SELECT bonus_balance FROM users WHERE id = $1`, [userId]);
+    const { rows: uOpp } = await pool.query(`SELECT bonus_balance FROM users WHERE id = $1`, [opponentId]);
     if ((u[0]?.bonus_balance || 0) < wager) return res.status(402).json({ error: 'Недостаточно бонусов для ставки' });
+    if ((uOpp[0]?.bonus_balance || 0) < wager) return res.status(402).json({ error: 'У противника недостаточно бонусов' });
+
+    // РАУНД-2 ФИКС: нет параллельных активных дуэлей между парой
+    const { rows: activeDuel } = await pool.query(
+      `SELECT 1 FROM duels WHERE ((challenger_id = $1 AND opponent_id = $2) OR (challenger_id = $2 AND opponent_id = $1)) AND status IN ('pending', 'active')`,
+      [userId, opponentId],
+    );
+    if (activeDuel.length) return res.status(409).json({ error: 'Между вами уже есть активная дуэль' });
 
     // Текущие лучшие стрики
     const { rows: my } = await pool.query(`SELECT COALESCE(MAX(best_streak), 0) AS s FROM habits WHERE user_id = $1 AND archived = FALSE`, [userId]);
@@ -57,6 +66,10 @@ router.post('/', async (req, res) => {
        VALUES ($1, $2, 'active', $3, $4, $5) RETURNING id`,
       [userId, opponentId, my[0].s, opp[0].s, wager],
     );
+
+    // РАУНД-2 ФИКС: эскроу — списываем ставку с создателя (вернётся ×2 при победе)
+    await pool.query(`UPDATE users SET bonus_balance = bonus_balance - $1 WHERE id = $2`, [wager, userId]);
+    await pool.query(`INSERT INTO bonus_transactions (user_id, amount, reason) VALUES ($1, $2, 'duel_wager')`, [userId, -wager]);
 
     res.json({ ok: true, duelId: duel[0].id, myStreak: my[0].s, oppStreak: opp[0].s });
   } catch (err) {
@@ -86,8 +99,14 @@ router.post('/:id/finish', async (req, res) => {
       [myS, oppS, winnerId, duelId]);
 
     if (winnerId) {
-      await pool.query(`UPDATE users SET bonus_balance = bonus_balance + $1 WHERE id = $2`, [duel.wager, winnerId]);
-      await pool.query(`INSERT INTO bonus_transactions (user_id, amount, reason) VALUES ($1, $2, 'duel_win')`, [winnerId, duel.wager]);
+      // Победитель получает удвоенную ставку (своя эскроу + ставка противника)
+      const prize = duel.wager * 2;
+      await pool.query(`UPDATE users SET bonus_balance = bonus_balance + $1 WHERE id = $2`, [prize, winnerId]);
+      await pool.query(`INSERT INTO bonus_transactions (user_id, amount, reason) VALUES ($1, $2, 'duel_win')`, [winnerId, prize]);
+    } else if (userId === duel.challenger_id) {
+      // Ничья — возврат эскроу создателю
+      await pool.query(`UPDATE users SET bonus_balance = bonus_balance + $1 WHERE id = $2`, [duel.wager, userId]);
+      await pool.query(`INSERT INTO bonus_transactions (user_id, amount, reason) VALUES ($1, $2, 'duel_refund')`, [userId, duel.wager]);
     }
 
     res.json({ ok: true, winnerId, myStreak: myS, oppStreak: oppS });

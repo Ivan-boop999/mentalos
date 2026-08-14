@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { api } from '../api/client';
 import { ResponsiveContainer, LineChart, Line, XAxis, YAxis, Tooltip, CartesianGrid } from 'recharts';
 
@@ -26,9 +26,13 @@ export default function MoodPage() {
 
   useEffect(() => { load(); }, []);
 
+  // РАУНД-2 ФИКС: select использует свежую заметку через ref (не stale)
+  const noteRef = useRef('');
+  useEffect(() => { noteRef.current = note; }, [note]);
+
   const select = async (mood) => {
-    setToday(mood);
-    try { await api.setMood(mood, note); load(); } catch {}
+    setMood(mood);
+    try { await api.setMood(mood, noteRef.current); load(); } catch {}
   };
 
   const saveNote = async () => {
