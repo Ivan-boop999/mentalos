@@ -218,9 +218,17 @@ export function startScheduler(bot) {
 
         // --- День рождения (приоритет, в ЛОКАЛЬНЫЙ день) ---
         if (u.companion_birthday && new Date(u.companion_birthday).toISOString().slice(0, 10) === localDate) {
-          await sendPetNotification(bot, uid, 'birthday', u, `${petTypeEmoji(u.companion_type)} 🎂 *${u.companion_name}* празднует день рождения!\n\nОн(а) подготовил(а) тебе подарок: 🪙 +50 бонусов!`);
-          await pool.query(`UPDATE users SET bonus_balance = bonus_balance + 50 WHERE id = $1`, [uid]);
-          await pool.query(`INSERT INTO bonus_transactions (user_id, amount, reason) VALUES ($1, 50, 'pet_birthday')`, [uid]);
+          // ФИКС-CRITICAL: начисление ТОЛЬКО при первой отправке (дедуп ДО бонуса)
+          const { rows: bdDup } = await pool.query(
+            `SELECT 1 FROM pet_notified WHERE user_id = $1 AND date = CURRENT_DATE AND kind = 'birthday'`, [uid],
+          );
+          if (!bdDup.length) {
+            await sendPetNotification(bot, uid, 'birthday', u, `${petTypeEmoji(u.companion_type)} 🎂 *${u.companion_name}* празднует день рождения!\n\nОн(а) подготовил(а) тебе подарок: 🪙 +50 бонусов!`);
+            await pool.query(`UPDATE users SET bonus_balance = bonus_balance + 50 WHERE id = $1`, [uid]);
+            await pool.query(`INSERT INTO bonus_transactions (user_id, amount, reason) VALUES ($1, 50, 'pet_birthday')`, [uid]);
+            const { logPetEvent } = await import('../routes/pet.js');
+            await logPetEvent(uid, u.companion_type, 'birthday', { bonus: 50 });
+          }
         }
 
         // --- Утро ---

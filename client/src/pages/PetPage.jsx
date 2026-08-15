@@ -194,7 +194,7 @@ export default function PetPage({ onBack }) {
                     <button className="shop-buy-btn" disabled={busy || balance < s.price} onClick={() => buySpecies(s.code, s.title, s.price)}>🪙 {s.price}</button>
                   )}
                   {!owned && s.price === 0 && (
-                    <button className="shop-buy-btn" onClick={() => switchPet(s.code)}>Получить</button>
+                    <button className="shop-buy-btn" disabled={busy} onClick={() => buySpecies(s.code, s.title, 0)}>Получить</button>
                   )}
                   {owned && !active && (
                     <button className="cs-btn equip-btn" onClick={() => switchPet(s.code)}>Выбрать</button>

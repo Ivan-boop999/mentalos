@@ -51,7 +51,7 @@ router.get('/', async (req, res) => {
     const xp = Number(p.xp) || 0;
     const level = Math.floor(Math.sqrt(xp / 50)) + 1;
     const colors = parseJson(p.colors, {});
-    const today = new Date().toDateString();
+    // today больше не нужен — используем localToday по таймзоне юзера
 
     // Коллекция всех питомцев
     const { rows: collection } = await pool.query(
@@ -88,8 +88,14 @@ router.get('/', async (req, res) => {
     // Бонусы
     const { rows: bal } = await pool.query(`SELECT bonus_balance FROM users WHERE id = $1`, [userId]);
 
-    // Черта характера
-    const { rows: trait } = await pool.query(`SELECT companion_trait, companion_birthday, last_shop_bonus FROM users WHERE id = $1`, [userId]);
+    // Черта характера + ДР по ЛОКАЛЬНОЙ дате (строковое сравнение — устойчиво к TZ)
+    const { rows: trait } = await pool.query(
+      `SELECT companion_trait, companion_birthday::text AS birthday_str, last_shop_bonus::text AS bonus_str, timezone FROM users WHERE id = $1`,
+      [userId],
+    );
+    const userTz = trait[0]?.timezone || 'UTC';
+    const localToday = new Intl.DateTimeFormat('en-CA', { timeZone: userTz, year: 'numeric', month: '2-digit', day: '2-digit' }).format(new Date());
+    const isBirthday = !!(trait[0]?.birthday_str && trait[0].birthday_str === localToday);
 
     res.json({
       pet: {
@@ -105,8 +111,8 @@ router.get('/', async (req, res) => {
         xpToNext: Math.pow(level, 2) * 50,
         xpForThis: Math.pow(level - 1, 2) * 50,
         trait: trait[0]?.companion_trait || 'curious',
-        isBirthday: !!(trait[0]?.companion_birthday && new Date(trait[0].companion_birthday).toDateString() === today),
-        birthday: trait[0]?.companion_birthday || null,
+        isBirthday,
+        birthday: trait[0]?.birthday_str || null,
       },
       equipped: parseJson(eq[0]?.companion_equipped, {}),
       adventure: adv[0] ? { status: adv[0].status === 'completed' ? 'ready' : 'active', returnsAt: adv[0].returns_at, canClaim: adv[0].status === 'completed' } : null,
@@ -114,7 +120,7 @@ router.get('/', async (req, res) => {
       collection,
       events: events.map((e) => ({ type: e.event_type, data: parseJson(e.event_data, {}), at: e.at })),
       balance: Number(bal[0]?.bonus_balance) || 0,
-      shopBonusAvailable: !(trait[0]?.last_shop_bonus && new Date(trait[0].last_shop_bonus).toDateString() === today),
+      shopBonusAvailable: trait[0]?.bonus_str !== localToday,
     });
   } catch (err) {
     console.error('GET /pet:', err);
@@ -122,26 +128,45 @@ router.get('/', async (req, res) => {
   }
 });
 
-/** POST /api/pet/switch — переключить активного питомца */
+/** POST /api/pet/switch — переключить активного питомца (транзакция + sync companion_type) */
 router.post('/switch', async (req, res) => {
   const userId = req.userId;
   const species = req.body?.species;
   if (!species) return res.status(400).json({ error: 'Укажи species' });
 
+  const client = await pool.connect();
   try {
+    await client.query('BEGIN');
     // Проверяем владение
-    const { rows: owned } = await pool.query(
-      `SELECT 1 FROM user_pets WHERE user_id = $1 AND species_code = $2`, [userId, species],
+    const { rows: owned } = await client.query(
+      `SELECT 1 FROM user_pets WHERE user_id = $1 AND species_code = $2 FOR UPDATE`, [userId, species],
     );
-    if (!owned.length) return res.status(403).json({ error: 'Сначала получи этого питомца' });
+    if (!owned.length) {
+      await client.query('ROLLBACK');
+      return res.status(403).json({ error: 'Сначала получи этого питомца' });
+    }
 
-    await pool.query(`UPDATE user_pets SET is_active = FALSE WHERE user_id = $1`, [userId]);
-    await pool.query(`UPDATE user_pets SET is_active = TRUE WHERE user_id = $1 AND species_code = $2`, [userId, species]);
-    await pool.query(`UPDATE users SET active_species = $1 WHERE id = $2`, [species, userId]);
+    // ФИКС: синхронизируем и user_pets, и users (companion_type + active_species)
+    await client.query(`UPDATE user_pets SET is_active = FALSE WHERE user_id = $1`, [userId]);
+    await client.query(`UPDATE user_pets SET is_active = TRUE WHERE user_id = $1 AND species_code = $2`, [userId, species]);
+    await client.query(`UPDATE users SET active_species = $1, companion_type = $1 WHERE id = $2`, [species, userId]);
+
+    // Синхронизируем имя питомца
+    const { rows: petName } = await client.query(
+      `SELECT name FROM user_pets WHERE user_id = $1 AND species_code = $2`, [userId, species],
+    );
+    if (petName[0]?.name) {
+      await client.query(`UPDATE users SET companion_name = $1 WHERE id = $2`, [petName[0].name, userId]);
+    }
+
+    await client.query('COMMIT');
     res.json({ ok: true, species });
   } catch (err) {
+    await client.query('ROLLBACK').catch(() => {});
     console.error('pet switch:', err);
     res.status(500).json({ error: 'Ошибка сервера' });
+  } finally {
+    client.release();
   }
 });
 
@@ -194,7 +219,8 @@ router.post('/buy', async (req, res) => {
 /** POST /api/pet/rename — переименовать активного питомца */
 router.post('/rename', async (req, res) => {
   const userId = req.userId;
-  const name = String(req.body?.name || '').trim();
+  // ФИКС: санитизация control-символов (NUL-байты ломают PostgreSQL)
+  const name = String(req.body?.name || '').replace(/[\u0000-\u0008\u000B\u000C\u000E-\u001F\u007F]/g, '').trim();
   if (!name || name.length > 20) return res.status(400).json({ error: 'Имя: 1–20 символов' });
 
   try {

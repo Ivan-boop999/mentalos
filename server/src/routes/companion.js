@@ -315,20 +315,44 @@ router.post('/adventure/start', async (req, res) => {
   }
 });
 
-/** POST /api/companion/adventure/claim — забрать находку */
+/** POST /api/companion/adventure/claim — забрать находку (атомарный claim) */
 router.post('/adventure/claim', async (req, res) => {
   const userId = req.userId;
+
+  // ===== Атомарный claim: только один запрос пометит как claimed =====
+  let a = null;
+  const client = await pool.connect();
   try {
-    const { rows: adv } = await pool.query(
-      `SELECT * FROM adventures WHERE user_id = $1 AND status IN ('active','completed')
+    const { rows: claimed } = await client.query(
+      `UPDATE adventures SET status = 'claimed', claimed_at = NOW()
+       WHERE id = (
+         SELECT id FROM adventures
+         WHERE user_id = $1 AND status IN ('active','completed')
+           AND returns_at <= NOW()
+         ORDER BY started_at DESC LIMIT 1
+         FOR UPDATE SKIP LOCKED
+       )
+       RETURNING *`,
+      [userId],
+    );
+    a = claimed[0] || null;
+  } finally {
+    client.release(); // ВАЖНО: освобождаем коннект сразу после claim
+  }
+
+  // Уточняем причину если claim не удался
+  if (!a) {
+    const { rows: any } = await pool.query(
+      `SELECT status, returns_at FROM adventures WHERE user_id = $1 AND status IN ('active','completed')
        ORDER BY started_at DESC LIMIT 1`, [userId],
     );
-    if (!adv.length) return res.status(404).json({ error: 'Нет приключения' });
-    const a = adv[0];
-    if (new Date(a.returns_at) > new Date()) {
-      return res.status(400).json({ error: 'Питомец ещё в пути', returnsAt: a.returns_at });
-    }
-    if (a.status === 'claimed') return res.status(409).json({ error: 'Уже забрано' });
+    if (!any.length) return res.status(404).json({ error: 'Нет приключения' });
+    if (new Date(any[0].returns_at) > new Date()) return res.status(400).json({ error: 'Питомец ещё в пути', returnsAt: any[0].returns_at });
+    return res.status(409).json({ error: 'Уже забрано' });
+  }
+
+  // ===== Выдача награды (вне транзакции — claim уже атомарен) =====
+  try {
 
     // Выдаём награду
     let rewardLabel = '';

@@ -151,6 +151,17 @@ export default function App() {
         playSound('success');
         if (res.surprise.type === 'streak_shield') loadHabits();
       }
+      // ФИКС: эволюция питомца — тост + подарок (раньше терялся если не на главной)
+      if (res.evolution) {
+        const stageEmoji = { baby: '🐣', teen: '🧒', adult: '🌟' }[res.evolution.stage] || '✨';
+        enqueueToast('surprise', {
+          type: 'evolution',
+          label: `${stageEmoji} Эволюция! ${res.evolution.giftLabel || ''}`,
+        });
+        setCelebrate((c) => c + 1);
+        playSound('success');
+        hapticFeedback('heavy');
+      }
       // Питомец живёт: обновляем после каждой отметки
       setCompanionTick((t) => t + 1);
       if (typeof res.streak === 'number') {

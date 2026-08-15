@@ -78,6 +78,13 @@ export default function PetCreature({ stage = 'egg', species = 'spark', colors =
           {stage === 'teen' && <TeenShape c={c} uid={uid} eyes={eyes} happy={happy} sad={sad} sleeping={sleeping} onZoneTap={zoneTap} />}
           {stage === 'adult' && <AdultShape c={c} uid={uid} eyes={eyes} happy={happy} sad={sad} sleeping={sleeping} onZoneTap={zoneTap} />}
 
+          {/* Домик (фон) — рендерится за телом */}
+          {stage !== 'egg' && emojiMap[equipped?.home] && (
+            <text x="100" y="110" fontSize="140" textAnchor="middle" opacity="0.15" pointerEvents="none">
+              {emojiMap[equipped.home]}
+            </text>
+          )}
+
           {/* Экипировка поверх */}
           {stage !== 'egg' && equipped && (
             <g pointerEvents="none">
