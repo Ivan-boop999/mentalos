@@ -148,15 +148,36 @@ export default function PetCreature({ stage = 'egg', species = 'spark', colors =
   }, []);
 
   const zoneTap = (zone) => {
+    // Видоспецифичные реакции + партиклы
+    const speciesParticles = {
+      spark: '⚡', frost: '❄️', shadow: '👻', rainbow: '🌈',
+      leaf: '🍃', drop: '💧', flame: '✨', star: '⭐',
+    };
+    const particleEmoji = speciesParticles[species] || '💜';
+
     const reactions = {
-      head: { name: 'laugh', text: '😊 Хи-хи!', sound: 'pop', hearts: 5 },
-      body: { name: 'tickle', text: '🤣 Щекотно!', sound: 'toggle', hearts: 4 },
-      feet: { name: 'wave', text: '👋 Привет!', sound: 'whoosh', hearts: 3 },
+      head: { name: 'laugh', text: '😊 Хи-хи!', sound: 'pop', count: 5 },
+      body: { name: 'tickle', text: '🤣 Щекотно!', sound: 'toggle', count: 4 },
+      feet: { name: 'wave', text: '👋 Привет!', sound: 'whoosh', count: 3 },
     };
     const r = reactions[zone];
     if (!r) return;
     setReact(r.name);
-    doSquash(r.hearts);
+    setSquash(true);
+    if (squashTimer.current) clearTimeout(squashTimer.current);
+    squashTimer.current = setTimeout(() => setSquash(false), 280);
+
+    // Партиклы (видоспецифичные + сердечки)
+    const items = Array.from({ length: r.count }, (_, idx) => ({
+      id: ++heartId.current,
+      x: Math.random() * 80 - 40,
+      delay: Math.random() * 0.3,
+      scale: 0.7 + Math.random() * 0.5,
+      emoji: idx < 2 ? particleEmoji : '💜', // первые 2 — видовые, остальные сердечки
+    }));
+    setHearts((h) => [...h, ...items]);
+    setTimeout(() => setHearts((h) => h.filter((x) => !items.find((i) => i.id === x.id))), 1500);
+
     haptic?.('light');
     playSound?.(r.sound);
     onZoneTap?.(r.text);
@@ -172,6 +193,7 @@ export default function PetCreature({ stage = 'egg', species = 'spark', colors =
       ref={containerRef}
       onPointerMove={handlePointerMove}
       onPointerLeave={() => { setEyePos({ x: 0, y: 0 }); setTilt(0); }}
+      className={`species-${species} ${squash ? `reaction-${species}` : ''}`}
       style={{
         position: 'relative', width: size, height: size * 1.15,
         perspective: '600px', cursor: 'pointer', touchAction: 'none',
@@ -325,7 +347,7 @@ export default function PetCreature({ stage = 'egg', species = 'spark', colors =
       {/* Партиклы */}
       {hearts.map((h) => (
         <span key={h.id} className={`pet-heart ${h.isStar ? 'star' : ''}`} style={{ '--hx': `${h.x}px`, '--hd': `${h.delay}s`, '--hs': h.scale, left: '50%', top: '35%' }}>
-          {h.isStar ? '✨' : '💜'}
+          {h.emoji || (h.isStar ? '✨' : '💜')}
         </span>
       ))}
 

@@ -1602,3 +1602,157 @@ select:focus-visible {
   0%, 100% { transform: translateY(0) rotate(0deg); opacity: 0.3; }
   50% { transform: translateY(-8px) rotate(15deg); opacity: 0.6; }
 }
+
+/* ===== ВИДОСПЕЦИФИЧНЫЕ АНИМАЦИИ ДЫХАНИЯ ===== */
+
+/* Spark: электрическое мерцание (быстрое, дрожащее) */
+.species-spark .pet-breath {
+  animation: sparkBreathe 1.8s ease-in-out infinite;
+}
+@keyframes sparkBreathe {
+  0%, 100% { transform: scale(1, 1); filter: brightness(1); }
+  25% { transform: scale(1.01, 1.02); filter: brightness(1.15); }
+  50% { transform: scale(1.02, 1.01); filter: brightness(0.95); }
+  75% { transform: scale(0.99, 1.02); filter: brightness(1.1); }
+}
+
+/* Leaf: органическое покачивание (медленное, природное) */
+.species-leaf .pet-breath {
+  animation: leafBreathe 4.5s ease-in-out infinite;
+}
+@keyframes leafBreathe {
+  0%, 100% { transform: scale(1, 1) rotate(0deg); }
+  30% { transform: scale(1.02, 1.03) rotate(1deg); }
+  70% { transform: scale(0.98, 1.01) rotate(-1deg); }
+}
+
+/* Drop: жидкое колыхание */
+.species-drop .pet-breath {
+  animation: dropBreathe 3s ease-in-out infinite;
+}
+@keyframes dropBreathe {
+  0%, 100% { transform: scale(1, 1); border-radius: 50%; }
+  50% { transform: scale(1.03, 0.98); }
+}
+
+/* Flame: огненное дрожание (быстрое) */
+.species-flame .pet-breath {
+  animation: flameBreathe 1.2s ease-in-out infinite;
+}
+@keyframes flameBreathe {
+  0%, 100% { transform: scale(1, 1) skewX(0deg); }
+  25% { transform: scale(1.02, 1.04) skewX(0.5deg); }
+  50% { transform: scale(0.98, 1.06) skewX(-0.5deg); }
+  75% { transform: scale(1.03, 0.98) skewX(0.3deg); }
+}
+
+/* Star: звёздное мерцание */
+.species-star .pet-breath {
+  animation: starBreathe 3.5s ease-in-out infinite;
+}
+@keyframes starBreathe {
+  0%, 100% { transform: scale(1, 1) rotate(0deg); filter: drop-shadow(0 0 0 transparent); }
+  50% { transform: scale(1.02, 1.02) rotate(1deg); filter: drop-shadow(0 0 8px rgba(255,215,0,0.3)); }
+}
+
+/* Frost: кристальное мерцание (медленное, жёсткое) */
+.species-frost .pet-breath {
+  animation: frostBreathe 5s ease-in-out infinite;
+}
+@keyframes frostBreathe {
+  0%, 100% { transform: scale(1, 1); filter: brightness(1); }
+  50% { transform: scale(1.01, 1.01); filter: brightness(1.2) saturate(1.2); }
+}
+
+/* Shadow: дымное колыхание */
+.species-shadow .pet-breath {
+  animation: shadowBreathe 4s ease-in-out infinite;
+}
+@keyframes shadowBreathe {
+  0%, 100% { transform: scale(1, 1) translateX(0); opacity: 1; }
+  30% { transform: scale(1.03, 0.98) translateX(2px); opacity: 0.95; }
+  70% { transform: scale(0.98, 1.02) translateX(-2px); opacity: 1; }
+}
+
+/* Rainbow: цветовое дыхание (hue rotation) */
+.species-rainbow .pet-breath {
+  animation: rainbowBreathe 3s ease-in-out infinite;
+}
+@keyframes rainbowBreathe {
+  0%, 100% { transform: scale(1, 1); filter: hue-rotate(0deg); }
+  50% { transform: scale(1.02, 1.02); filter: hue-rotate(30deg); }
+}
+
+/* ===== ВИДОСПЕЦИФИЧНЫЕ ТАП-РЕАКЦИИ ===== */
+
+/* Spark: electric shock */
+.reaction-spark { animation: zapReaction 0.4s ease-out; }
+@keyframes zapReaction {
+  0% { filter: brightness(3) drop-shadow(0 0 20px #FFD700); }
+  50% { filter: brightness(0.5); }
+  100% { filter: brightness(1); }
+}
+
+/* Drop: splash */
+.reaction-drop { animation: splashReaction 0.5s ease-out; }
+@keyframes splashReaction {
+  0% { transform: scale(1); }
+  30% { transform: scale(1.15, 0.85); }
+  60% { transform: scale(0.9, 1.1); }
+  100% { transform: scale(1); }
+}
+
+/* Flame: fire burst */
+.reaction-flame { animation: fireReaction 0.4s ease-out; }
+@keyframes fireReaction {
+  0% { filter: brightness(1) saturate(1); transform: scale(1); }
+  30% { filter: brightness(2) saturate(2) drop-shadow(0 0 15px #FF6B00); transform: scale(1.08, 1.15); }
+  100% { filter: brightness(1) saturate(1); transform: scale(1); }
+}
+
+/* Leaf: petal burst */
+.reaction-leaf { animation: petalReaction 0.5s ease-out; }
+@keyframes petalReaction {
+  0% { transform: rotate(0deg) scale(1); }
+  25% { transform: rotate(-5deg) scale(1.05); }
+  75% { transform: rotate(5deg) scale(0.95); }
+  100% { transform: rotate(0deg) scale(1); }
+}
+
+/* ===== УЛУЧШЕННЫЕ ВИДОСПЕЦИФИЧНЫЕ IDLE ===== */
+
+/* Circuit pulse для Spark */
+.circuit-pulse { animation: circuitFlow 2s linear infinite; }
+@keyframes circuitFlow {
+  0% { opacity: 0.1; }
+  50% { opacity: 0.4; }
+  100% { opacity: 0.1; }
+}
+
+/* Core pulse (общий для Spark/Flame/Frost/Rainbow) */
+.core-pulse { animation: coreBeat 2.5s ease-in-out infinite; }
+@keyframes coreBeat {
+  0%, 100% { opacity: 0.15; transform: scale(1); }
+  50% { opacity: 0.35; transform: scale(1.15); }
+}
+
+/* Wave flow для Drop */
+.wave-flow { animation: waveMove 3s ease-in-out infinite; }
+@keyframes waveMove {
+  0%, 100% { transform: translateX(0); }
+  50% { transform: translateX(4px); }
+}
+
+/* Ember flicker для Flame */
+.ember-flicker { animation: emberDance 0.8s ease-in-out infinite alternate; }
+@keyframes emberDance {
+  from { opacity: 0.3; transform: translateY(0) scale(1); }
+  to { opacity: 0.6; transform: translateY(-3px) scale(1.1); }
+}
+
+/* Prism rotate для Rainbow */
+.prism-rotate { animation: prismSpin 8s linear infinite; }
+@keyframes prismSpin {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
