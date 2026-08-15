@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState, useCallback } from 'react';
-import { StarBaby, StarTeen, StarAdult } from './StarSpecies.jsx';
+import { StarBaby, StarTeen, StarAdult, StarDefs } from './StarSpecies.jsx';
 
 /**
  * PetCreature v3 — «Finch-level» дизайн:
@@ -212,7 +212,13 @@ export default function PetCreature({ stage = 'egg', species = 'spark', colors =
             <stop offset="0%" stopColor={c.glow} stopOpacity={evolving ? "0.6" : "0.2"} />
             <stop offset="100%" stopColor={c.glow} stopOpacity="0" />
           </radialGradient>
-          {/* Мини-звёзды для Star-вида */}
+          {/* Фильтры для Star-вида (blur для glow) */}
+          <filter id="star-blur" x="-50%" y="-50%" width="200%" height="200%">
+            <feGaussianBlur stdDeviation="6" />
+          </filter>
+          <filter id="star-blur-sm" x="-50%" y="-50%" width="200%" height="200%">
+            <feGaussianBlur stdDeviation="3" />
+          </filter>
           <path id="tiny-star" d="M0-4 L1-1 L4 0 L1 1 L0 4 L-1 1 L-4 0 L-1-1 Z" />
           <path id="mini-star" d="M0-7 L1.8-1.8 L7 0 L1.8 1.8 L0 7 L-1.8 1.8 L-7 0 L-1.8-1.8 Z" />
         </defs>
