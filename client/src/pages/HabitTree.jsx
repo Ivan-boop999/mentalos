@@ -1,3 +1,4 @@
+import { useState } from 'react';
 import { todayIso } from '../utils/date.js';
 
 /**
@@ -14,6 +15,7 @@ const STAGES = {
 };
 
 export default function HabitTreePage({ habits = [] }) {
+  const [showAllLeaves, setShowAllLeaves] = useState(false);
   const done = habits.filter((h) => (h.logs || []).some((l) => l.date === todayIso() && l.status === 'done')).length;
   const total = habits.length;
   const healthPct = total > 0 ? Math.round((done / total) * 100) : 0;
@@ -40,7 +42,7 @@ export default function HabitTreePage({ habits = [] }) {
 
       <div className="tree-leaves">
         <h3 className="card-title">Листья ({habits.length})</h3>
-        {habits.map((h) => {
+        {(showAllLeaves ? habits : habits.slice(0, 5)).map((h) => {
           const active = (h.logs || []).some((l) => l.date === todayIso() && l.status === 'done');
           return (
             <div key={h.id} className={`tree-leaf ${active ? 'alive' : 'wilted'}`}>
@@ -51,6 +53,11 @@ export default function HabitTreePage({ habits = [] }) {
             </div>
           );
         })}
+        {habits.length > 5 && (
+          <button className="chip cat-chip ghost-chip" style={{ margin: '8px auto', display: 'flex' }} onClick={() => setShowAllLeaves((v) => !v)}>
+            {showAllLeaves ? 'Свернуть' : `Показать все (${habits.length})`}
+          </button>
+        )}
       </div>
     </div>
   );

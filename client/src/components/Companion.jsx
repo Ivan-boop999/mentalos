@@ -329,14 +329,14 @@ function Creature({ type, stage, blink, mood, size, colors, equipped, emojiMap }
               </>
             ) : (
               <>
-                <ellipse cx="49" cy="52" rx="7" ry="8" fill="#FFFFFF" />
-                <ellipse cx="71" cy="52" rx="7" ry="8" fill="#FFFFFF" />
-                <circle cx="50" cy="53" r="4" fill="#1A1A2E" />
-                <circle cx="72" cy="53" r="4" fill="#1A1A2E" />
-                <circle cx="51.5" cy="51" r="1.8" fill="#FFFFFF" />
-                <circle cx="73.5" cy="51" r="1.8" fill="#FFFFFF" />
-                <circle cx="48.5" cy="54.5" r="0.8" fill="#FFFFFF" opacity="0.7" />
-                <circle cx="70.5" cy="54.5" r="0.8" fill="#FFFFFF" opacity="0.7" />
+                <ellipse cx="50" cy="52" rx="6" ry="7" fill="#FFFFFF" />
+                <ellipse cx="70" cy="52" rx="6" ry="7" fill="#FFFFFF" />
+                <circle cx="50.5" cy="53" r="3.2" fill="#1A1A2E" />
+                <circle cx="70.5" cy="53" r="3.2" fill="#1A1A2E" />
+                <circle cx="51.8" cy="51.5" r="1.4" fill="#FFFFFF" />
+                <circle cx="71.8" cy="51.5" r="1.4" fill="#FFFFFF" />
+                <circle cx="49.2" cy="54.5" r="0.6" fill="#FFFFFF" opacity="0.7" />
+                <circle cx="69.2" cy="54.5" r="0.6" fill="#FFFFFF" opacity="0.7" />
               </>
             )}
           </>

@@ -88,7 +88,7 @@ export default function MoodPage() {
         <div className="chart-card">
           <h3 className="card-title">📈 Динамика настроения</h3>
           <ResponsiveContainer width="100%" height={200}>
-            <LineChart data={chartData} margin={{ top: 10, right: 5, left: -25, bottom: 0 }}>
+            <LineChart data={chartData} margin={{ top: 10, right: 5, left: -18, bottom: 0 }}>
               <CartesianGrid strokeDasharray="3 3" stroke="var(--chart-grid)" vertical={false} />
               <XAxis dataKey="date" tick={{ fill: 'var(--text-muted)', fontSize: 11 }} axisLine={false} tickLine={false} />
               <YAxis domain={[1, 5]} ticks={[1, 2, 3, 4, 5]} tick={{ fill: 'var(--text-muted)', fontSize: 11 }} axisLine={false} tickLine={false} />

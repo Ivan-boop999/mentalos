@@ -49,7 +49,7 @@ export default function RecapPage() {
         <div className="chart-card">
           <h3 className="card-title">Активность по дням</h3>
           <ResponsiveContainer width="100%" height={180}>
-            <BarChart data={chartData} margin={{ top: 10, right: 5, left: -25, bottom: 0 }}>
+            <BarChart data={chartData} margin={{ top: 10, right: 5, left: -18, bottom: 0 }}>
               <CartesianGrid strokeDasharray="3 3" stroke="var(--chart-grid)" vertical={false} />
               <XAxis dataKey="name" tick={{ fill: 'var(--text-muted)', fontSize: 12 }} axisLine={false} tickLine={false} />
               <YAxis tick={{ fill: 'var(--text-muted)', fontSize: 12 }} axisLine={false} tickLine={false} allowDecimals={false} />

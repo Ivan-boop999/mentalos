@@ -186,13 +186,13 @@ input, textarea { font-family: inherit; }
 .sort-chip.active { background: var(--gradient-main); color: #fff; border-color: transparent; }
 
 /* ===== Habit card v2 (3 состояния) ===== */
-.habits-list { display: flex; flex-direction: column; gap: 12px; }
+.habits-list { display: flex; flex-direction: column; gap: 14px; }
 
 .habit-card-v2 {
   background: var(--card);
   border: 1px solid var(--border);
   border-radius: var(--radius-md);
-  padding: 16px;
+  padding: var(--space-3) var(--space-4);
   box-shadow: var(--shadow-card);
   transition: all 0.25s ease;
   position: relative;
@@ -692,10 +692,11 @@ input, textarea { font-family: inherit; }
 
 /* ===== Companion (живой персонаж) ===== */
 .companion-card {
-  display: flex; align-items: center; gap: 14px;
+  display: flex; align-items: center; gap: 12px;
   border-radius: var(--radius-md);
-  padding: 14px 16px;
-  margin-bottom: 16px;
+  padding: 10px 14px;
+  margin-bottom: 12px;
+  margin-top: 14px; /* место для пузыря сверху */
   cursor: pointer;
   transition: transform 0.2s ease;
 }
@@ -1220,14 +1221,14 @@ select:focus-visible {
 /* ===== Companion v3: пузырь речи, сердечки, wobble яйца ===== */
 .companion-stage-wrap { position: relative; flex-shrink: 0; }
 .companion-bubble {
-  position: absolute; top: -14px; left: 50%; transform: translateX(-50%);
+  position: absolute; top: -10px; left: 50%; transform: translateX(-50%);
   background: var(--card); border: 1px solid var(--border);
-  border-radius: var(--radius-md) var(--radius-md) var(--radius-md) 4px;
-  padding: 6px 12px;
+  border-radius: var(--radius-sm) var(--radius-sm) var(--radius-sm) 4px;
+  padding: 5px 10px;
   font-size: var(--text-caption); font-weight: var(--fw-medium);
   color: var(--text-secondary);
-  white-space: nowrap; max-width: 220px; overflow: hidden; text-overflow: ellipsis;
-  box-shadow: var(--shadow-sm);
+  white-space: normal; max-width: 250px; text-align: center;
+  box-shadow: var(--shadow-xs);
   animation: bubbleIn 0.4s var(--ease-spring);
   z-index: 2;
 }
@@ -1255,8 +1256,8 @@ select:focus-visible {
 .hatch-hint { color: var(--warning); font-weight: var(--fw-bold); margin-left: var(--space-2); }
 
 .pet-settings { padding: var(--space-4); border-radius: var(--radius-md); margin-bottom: var(--space-4); display: flex; flex-direction: column; gap: var(--space-2); }
-.pet-settings .seg-control { flex-wrap: wrap; }
-.pet-settings .seg-btn { flex: 1 1 40%; font-size: var(--text-caption); padding: var(--space-2); }
+.pet-settings .seg-control { flex-wrap: wrap; gap: var(--space-1); }
+.pet-settings .seg-btn { flex: 1 1 44%; font-size: var(--text-caption2); padding: var(--space-2) var(--space-1); min-height: 36px; }
 
 /* ===== Companion v4: приключения, домик, сон, ДР, бесплатка ===== */
 .companion-home {
@@ -1286,4 +1287,11 @@ select:focus-visible {
   background: var(--accent-soft); color: var(--accent);
   border-radius: var(--radius-sm); font-size: var(--text-footnote); font-weight: var(--fw-semibold);
 }
-.daily-bonus-btn { width: 100%; margin-bottom: var(--space-4); }
+.daily-bonus-btn {
+  width: 100%; margin-bottom: var(--space-4);
+  background: var(--gradient-warm) !important;
+  color: #fff !important; border: none !important;
+  padding: var(--space-3) !important;
+  animation: pulse 2s ease-in-out infinite;
+}
+.daily-bonus-btn:disabled { animation: none; opacity: 0.6; }
