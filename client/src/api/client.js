@@ -89,6 +89,12 @@ export const api = {
   claimAdventure: () => request('/api/companion/adventure/claim', { method: 'POST' }),
   claimShopDailyBonus: () => request('/api/companion/shop/daily-bonus', { method: 'POST' }),
 
+  // Pet (страница питомца: стейт, коллекция, переключение)
+  getPet: () => request('/api/pet'),
+  switchPet: (species) => request('/api/pet/switch', { method: 'POST', body: JSON.stringify({ species }) }),
+  buyPet: (species) => request('/api/pet/buy', { method: 'POST', body: JSON.stringify({ species }) }),
+  renamePet: (name) => request('/api/pet/rename', { method: 'POST', body: JSON.stringify({ name }) }),
+
   // Buddies (бадди-механика с согласием)
   getBuddies: () => request('/api/buddies'),
   inviteBuddy: (code) => request('/api/buddies/invite', { method: 'POST', body: JSON.stringify({ code }) }),

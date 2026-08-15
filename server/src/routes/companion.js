@@ -348,6 +348,10 @@ router.post('/adventure/claim', async (req, res) => {
       rewardLabel = `${it[0]?.emoji || '🎁'} ${it[0]?.title || 'Подарок'} (бесплатно!)`;
     }
     await pool.query(`UPDATE adventures SET status = 'claimed', claimed_at = NOW() WHERE id = $1`, [a.id]);
+    // Событие в дневник питомца
+    const { logPetEvent } = await import('./pet.js');
+    const { rows: sp } = await pool.query(`SELECT active_species FROM users WHERE id = $1`, [req.userId]);
+    await logPetEvent(req.userId, sp[0]?.active_species, 'adventure', { reward: rewardLabel });
     res.json({ ok: true, rewardLabel });
   } catch (err) {
     console.error('adventure claim:', err);
