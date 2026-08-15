@@ -1,5 +1,9 @@
 import { useEffect, useRef, useState, useCallback } from 'react';
-import { StarBaby, StarTeen, StarAdult, StarDefs } from './StarSpecies.jsx';
+import { StarBaby, StarTeen, StarAdult } from './StarSpecies.jsx';
+import { FrostBaby, FrostTeen, FrostAdult } from './FrostSpecies.jsx';
+import { ShadowBaby, ShadowTeen, ShadowAdult } from './ShadowSpecies.jsx';
+import { RainbowBaby, RainbowTeen, RainbowAdult, RainbowDefs } from './RainbowSpecies.jsx';
+import { LeafBaby, LeafTeen, LeafAdult } from './LeafSpecies.jsx';
 
 /**
  * PetCreature v3 — «Finch-level» дизайн:
@@ -249,22 +253,39 @@ export default function PetCreature({ stage = 'egg', species = 'spark', colors =
             {/* Stretch: тело вытягивается вверх */}
             <g style={idleAction === 'stretch' ? { transform: 'scale(0.95, 1.1)', transformOrigin: '100px 200px', transition: 'transform 0.6s ease-in-out' } : undefined}>
               {stage === 'egg' && <EggShape c={c} uid={uid} near={happy} evolving={evolving} />}
-              {/* ВИД «ЗВЁЗДНЫЙ» — уникальный силуэт */}
-              {stage !== 'egg' && species === 'star' && (
-                <>
-                  {stage === 'baby' && <StarBaby c={c} uid={uid} eyes={eyes} happy={happy} sad={sad} excited={excited} eyeOffset={eyeOffset(eyePos)} onZoneTap={zoneTap} />}
-                  {stage === 'teen' && <StarTeen c={c} uid={uid} eyes={eyes} happy={happy} sad={sad} excited={excited} eyeOffset={eyeOffset(eyePos)} onZoneTap={zoneTap} />}
-                  {stage === 'adult' && <StarAdult c={c} uid={uid} eyes={eyes} happy={happy} sad={sad} excited={excited} eyeOffset={eyeOffset(eyePos)} onZoneTap={zoneTap} />}
-                </>
-              )}
-              {/* Базовые виды (spark/leaf/drop/flame/frost/shadow/rainbow) */}
-              {stage !== 'egg' && species !== 'star' && (
-                <>
-                  {stage === 'baby' && <BabyShape c={c} uid={uid} eyes={eyes} happy={happy} sad={sad} excited={excited} sleeping={sleeping} eyePos={eyePos} eyeOffset={eyeOffset(eyePos)} onZoneTap={zoneTap} yawning={idleAction === 'yawn'} preening={idleAction === 'preen'} />}
-                  {stage === 'teen' && <TeenShape c={c} uid={uid} eyes={eyes} happy={happy} sad={sad} excited={excited} sleeping={sleeping} eyePos={eyePos} eyeOffset={eyeOffset(eyePos)} onZoneTap={zoneTap} yawning={idleAction === 'yawn'} preening={idleAction === 'preen'} />}
-                  {stage === 'adult' && <AdultShape c={c} uid={uid} eyes={eyes} happy={happy} sad={sad} excited={excited} sleeping={sleeping} eyePos={eyePos} eyeOffset={eyeOffset(eyePos)} onZoneTap={zoneTap} yawning={idleAction === 'yawn'} preening={idleAction === 'preen'} />}
-                </>
-              )}
+              {/* УНИКАЛЬНЫЕ ВИДЫ — рендер по species */}
+              {stage !== 'egg' && species === 'star' && (<>
+                {stage === 'baby' && <StarBaby c={c} uid={uid} eyes={eyes} happy={happy} sad={sad} excited={excited} eo={eyeOffset(eyePos)} onZoneTap={zoneTap} />}
+                {stage === 'teen' && <StarTeen c={c} uid={uid} eyes={eyes} happy={happy} sad={sad} excited={excited} eo={eyeOffset(eyePos)} onZoneTap={zoneTap} />}
+                {stage === 'adult' && <StarAdult c={c} uid={uid} eyes={eyes} happy={happy} sad={sad} excited={excited} eo={eyeOffset(eyePos)} onZoneTap={zoneTap} />}
+              </>)}
+              {stage !== 'egg' && species === 'frost' && (<>
+                {stage === 'baby' && <FrostBaby c={c} uid={uid} eyes={eyes} happy={happy} sad={sad} excited={excited} eo={eyeOffset(eyePos)} onZoneTap={zoneTap} />}
+                {stage === 'teen' && <FrostTeen c={c} uid={uid} eyes={eyes} happy={happy} sad={sad} excited={excited} eo={eyeOffset(eyePos)} onZoneTap={zoneTap} />}
+                {stage === 'adult' && <FrostAdult c={c} uid={uid} eyes={eyes} happy={happy} sad={sad} excited={excited} eo={eyeOffset(eyePos)} onZoneTap={zoneTap} />}
+              </>)}
+              {stage !== 'egg' && species === 'shadow' && (<>
+                {stage === 'baby' && <ShadowBaby c={c} uid={uid} eyes={eyes} happy={happy} sad={sad} excited={excited} eo={eyeOffset(eyePos)} onZoneTap={zoneTap} />}
+                {stage === 'teen' && <ShadowTeen c={c} uid={uid} eyes={eyes} happy={happy} sad={sad} excited={excited} eo={eyeOffset(eyePos)} onZoneTap={zoneTap} />}
+                {stage === 'adult' && <ShadowAdult c={c} uid={uid} eyes={eyes} happy={happy} sad={sad} excited={excited} eo={eyeOffset(eyePos)} onZoneTap={zoneTap} />}
+              </>)}
+              {stage !== 'egg' && species === 'rainbow' && (<>
+                <RainbowDefs />
+                {stage === 'baby' && <RainbowBaby c={c} uid={uid} eyes={eyes} happy={happy} sad={sad} excited={excited} eo={eyeOffset(eyePos)} onZoneTap={zoneTap} />}
+                {stage === 'teen' && <RainbowTeen c={c} uid={uid} eyes={eyes} happy={happy} sad={sad} excited={excited} eo={eyeOffset(eyePos)} onZoneTap={zoneTap} />}
+                {stage === 'adult' && <RainbowAdult c={c} uid={uid} eyes={eyes} happy={happy} sad={sad} excited={excited} eo={eyeOffset(eyePos)} onZoneTap={zoneTap} />}
+              </>)}
+              {stage !== 'egg' && species === 'leaf' && (<>
+                {stage === 'baby' && <LeafBaby c={c} uid={uid} eyes={eyes} happy={happy} sad={sad} excited={excited} eo={eyeOffset(eyePos)} onZoneTap={zoneTap} />}
+                {stage === 'teen' && <LeafTeen c={c} uid={uid} eyes={eyes} happy={happy} sad={sad} excited={excited} eo={eyeOffset(eyePos)} onZoneTap={zoneTap} />}
+                {stage === 'adult' && <LeafAdult c={c} uid={uid} eyes={eyes} happy={happy} sad={sad} excited={excited} eo={eyeOffset(eyePos)} onZoneTap={zoneTap} />}
+              </>)}
+              {/* Базовые виды (spark/drop/flame — без уникального дизайна) */}
+              {stage !== 'egg' && !['star', 'frost', 'shadow', 'rainbow', 'leaf'].includes(species) && (<>
+                {stage === 'baby' && <BabyShape c={c} uid={uid} eyes={eyes} happy={happy} sad={sad} excited={excited} sleeping={sleeping} eyePos={eyePos} eyeOffset={eyeOffset(eyePos)} onZoneTap={zoneTap} yawning={idleAction === 'yawn'} preening={idleAction === 'preen'} />}
+                {stage === 'teen' && <TeenShape c={c} uid={uid} eyes={eyes} happy={happy} sad={sad} excited={excited} sleeping={sleeping} eyePos={eyePos} eyeOffset={eyeOffset(eyePos)} onZoneTap={zoneTap} yawning={idleAction === 'yawn'} preening={idleAction === 'preen'} />}
+                {stage === 'adult' && <AdultShape c={c} uid={uid} eyes={eyes} happy={happy} sad={sad} excited={excited} sleeping={sleeping} eyePos={eyePos} eyeOffset={eyeOffset(eyePos)} onZoneTap={zoneTap} yawning={idleAction === 'yawn'} preening={idleAction === 'preen'} />}
+              </>)}
             </g>
 
             {/* Экипировка */}
