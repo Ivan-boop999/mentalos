@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState, useCallback } from 'react';
+import { StarBaby, StarTeen, StarAdult } from './StarSpecies.jsx';
 
 /**
  * PetCreature v3 — «Finch-level» дизайн:
@@ -211,6 +212,9 @@ export default function PetCreature({ stage = 'egg', species = 'spark', colors =
             <stop offset="0%" stopColor={c.glow} stopOpacity={evolving ? "0.6" : "0.2"} />
             <stop offset="100%" stopColor={c.glow} stopOpacity="0" />
           </radialGradient>
+          {/* Мини-звёзды для Star-вида */}
+          <path id="tiny-star" d="M0-4 L1-1 L4 0 L1 1 L0 4 L-1 1 L-4 0 L-1-1 Z" />
+          <path id="mini-star" d="M0-7 L1.8-1.8 L7 0 L1.8 1.8 L0 7 L-1.8 1.8 L-7 0 L-1.8-1.8 Z" />
         </defs>
 
         {/* Аура (ярче при эволюции) */}
@@ -239,9 +243,22 @@ export default function PetCreature({ stage = 'egg', species = 'spark', colors =
             {/* Stretch: тело вытягивается вверх */}
             <g style={idleAction === 'stretch' ? { transform: 'scale(0.95, 1.1)', transformOrigin: '100px 200px', transition: 'transform 0.6s ease-in-out' } : undefined}>
               {stage === 'egg' && <EggShape c={c} uid={uid} near={happy} evolving={evolving} />}
-              {stage === 'baby' && <BabyShape c={c} uid={uid} eyes={eyes} happy={happy} sad={sad} excited={excited} sleeping={sleeping} eyePos={eyePos} eyeOffset={eyeOffset(eyePos)} onZoneTap={zoneTap} yawning={idleAction === 'yawn'} preening={idleAction === 'preen'} />}
-              {stage === 'teen' && <TeenShape c={c} uid={uid} eyes={eyes} happy={happy} sad={sad} excited={excited} sleeping={sleeping} eyePos={eyePos} eyeOffset={eyeOffset(eyePos)} onZoneTap={zoneTap} yawning={idleAction === 'yawn'} preening={idleAction === 'preen'} />}
-              {stage === 'adult' && <AdultShape c={c} uid={uid} eyes={eyes} happy={happy} sad={sad} excited={excited} sleeping={sleeping} eyePos={eyePos} eyeOffset={eyeOffset(eyePos)} onZoneTap={zoneTap} yawning={idleAction === 'yawn'} preening={idleAction === 'preen'} />}
+              {/* ВИД «ЗВЁЗДНЫЙ» — уникальный силуэт */}
+              {stage !== 'egg' && species === 'star' && (
+                <>
+                  {stage === 'baby' && <StarBaby c={c} uid={uid} eyes={eyes} happy={happy} sad={sad} excited={excited} eyeOffset={eyeOffset(eyePos)} onZoneTap={zoneTap} />}
+                  {stage === 'teen' && <StarTeen c={c} uid={uid} eyes={eyes} happy={happy} sad={sad} excited={excited} eyeOffset={eyeOffset(eyePos)} onZoneTap={zoneTap} />}
+                  {stage === 'adult' && <StarAdult c={c} uid={uid} eyes={eyes} happy={happy} sad={sad} excited={excited} eyeOffset={eyeOffset(eyePos)} onZoneTap={zoneTap} />}
+                </>
+              )}
+              {/* Базовые виды (spark/leaf/drop/flame/frost/shadow/rainbow) */}
+              {stage !== 'egg' && species !== 'star' && (
+                <>
+                  {stage === 'baby' && <BabyShape c={c} uid={uid} eyes={eyes} happy={happy} sad={sad} excited={excited} sleeping={sleeping} eyePos={eyePos} eyeOffset={eyeOffset(eyePos)} onZoneTap={zoneTap} yawning={idleAction === 'yawn'} preening={idleAction === 'preen'} />}
+                  {stage === 'teen' && <TeenShape c={c} uid={uid} eyes={eyes} happy={happy} sad={sad} excited={excited} sleeping={sleeping} eyePos={eyePos} eyeOffset={eyeOffset(eyePos)} onZoneTap={zoneTap} yawning={idleAction === 'yawn'} preening={idleAction === 'preen'} />}
+                  {stage === 'adult' && <AdultShape c={c} uid={uid} eyes={eyes} happy={happy} sad={sad} excited={excited} sleeping={sleeping} eyePos={eyePos} eyeOffset={eyeOffset(eyePos)} onZoneTap={zoneTap} yawning={idleAction === 'yawn'} preening={idleAction === 'preen'} />}
+                </>
+              )}
             </g>
 
             {/* Экипировка */}

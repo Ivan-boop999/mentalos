@@ -1527,3 +1527,12 @@ select:focus-visible {
 
 /* Партиклы-звёзды (для эволюции) */
 .pet-heart.star { font-size: 22px; }
+
+/* ===== Star Species: уникальные анимации ===== */
+.star-sparkles text {
+  animation: sparkleTwinkle 1.5s ease-in-out infinite;
+}
+@keyframes sparkleTwinkle {
+  0%, 100% { opacity: 0.2; transform: scale(0.8); }
+  50% { opacity: 0.8; transform: scale(1.2); }
+}
