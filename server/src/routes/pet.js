@@ -19,10 +19,14 @@ function parseJson(v, fallback) {
 router.get('/', async (req, res) => {
   const userId = req.userId;
   try {
-    // Активный питомец
+    // Активный питомец (XP и mood берём из users — единый источник истины)
     const { rows: pet } = await pool.query(
-      `SELECT up.*, ps.title AS species_title, ps.emoji AS species_emoji, ps.colors
-       FROM user_pets up JOIN pet_species ps ON ps.code = up.species_code
+      `SELECT up.id, up.species_code, up.name, up.is_active, up.obtained_at,
+              ps.title AS species_title, ps.emoji AS species_emoji, ps.colors,
+              u.companion_xp AS xp, u.companion_mood AS mood
+       FROM user_pets up
+       JOIN pet_species ps ON ps.code = up.species_code
+       JOIN users u ON u.id = up.user_id
        WHERE up.user_id = $1 AND up.is_active = TRUE`, [userId],
     );
 
