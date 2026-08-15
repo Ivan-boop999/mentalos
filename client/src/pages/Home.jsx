@@ -93,10 +93,10 @@ export default function HomePage({ habits, loading, onLog, onUnlog, onDelete, on
       {habits.length > 0 && (
         <div className="hero-card">
           <div className="hero-row">
-            <div>
-              <div style={{ fontSize: 13, opacity: 0.9 }}>Сегодня</div>
-              <div style={{ fontSize: 32, fontWeight: 800 }}>{doneCount} <span style={{ opacity: 0.6 }}>/ {habits.length}</span></div>
-              <div style={{ fontSize: 13, opacity: 0.85 }}>{allDone ? '🎉 Все выполнено!' : 'Продолжай в том же духе'}</div>
+            <div className="hero-text">
+              <div className="hero-label">Сегодня</div>
+              <div className="hero-count">{doneCount} <span className="hero-total">/ {habits.length}</span></div>
+              <div className="hero-status">{allDone ? '🎉 Все выполнено!' : 'Продолжай в том же духе'}</div>
             </div>
             <ProgressRing progress={progress}>{progress}%</ProgressRing>
           </div>
