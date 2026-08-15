@@ -73,17 +73,17 @@ export default function PetCreature({ stage = 'egg', species = 'spark', colors =
 
         <g className="companion-bob" style={{ transform: react === 'tickle' ? 'rotate(5deg)' : react === 'laugh' ? 'translateY(-4px)' : undefined, transformOrigin: '100px 110px', transition: 'transform 0.3s cubic-bezier(0.34,1.56,0.64,1)' }}>
 
-          {stage === 'egg' && <EggShape c={c} uid={uid} onZoneTap={zoneTap} />}
-          {stage === 'baby' && <BabyShape c={c} uid={uid} eyes={eyes} happy={happy} sad={sad} sleeping={sleeping} onZoneTap={zoneTap} />}
-          {stage === 'teen' && <TeenShape c={c} uid={uid} eyes={eyes} happy={happy} sad={sad} sleeping={sleeping} onZoneTap={zoneTap} />}
-          {stage === 'adult' && <AdultShape c={c} uid={uid} eyes={eyes} happy={happy} sad={sad} sleeping={sleeping} onZoneTap={zoneTap} />}
-
-          {/* Домик (фон) — рендерится за телом */}
+          {/* Домик (фон) — ДО тел в paint order (за спиной) */}
           {stage !== 'egg' && emojiMap[equipped?.home] && (
             <text x="100" y="110" fontSize="140" textAnchor="middle" opacity="0.15" pointerEvents="none">
               {emojiMap[equipped.home]}
             </text>
           )}
+
+          {stage === 'egg' && <EggShape c={c} uid={uid} onZoneTap={zoneTap} />}
+          {stage === 'baby' && <BabyShape c={c} uid={uid} eyes={eyes} happy={happy} sad={sad} sleeping={sleeping} onZoneTap={zoneTap} />}
+          {stage === 'teen' && <TeenShape c={c} uid={uid} eyes={eyes} happy={happy} sad={sad} sleeping={sleeping} onZoneTap={zoneTap} />}
+          {stage === 'adult' && <AdultShape c={c} uid={uid} eyes={eyes} happy={happy} sad={sad} sleeping={sleeping} onZoneTap={zoneTap} />}
 
           {/* Экипировка поверх */}
           {stage !== 'egg' && equipped && (

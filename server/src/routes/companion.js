@@ -90,6 +90,26 @@ router.put('/', async (req, res) => {
   try {
     const fields = Object.keys(sets).map((k, i) => `${k} = $${i + 2}`).join(', ');
     await pool.query(`UPDATE users SET ${fields} WHERE id = $1`, [req.userId, ...Object.values(sets)]);
+
+    // ФИКС: синхронизируем user_pets.name (иначе switch затрёт имя)
+    if (sets.companion_name) {
+      await pool.query(
+        `UPDATE user_pets SET name = $1 WHERE user_id = $2 AND is_active = TRUE`,
+        [sets.companion_name, req.userId],
+      );
+    }
+    // ФИКС: синхронизируем user_pets.is_active при смене типа
+    if (sets.companion_type) {
+      await pool.query(
+        `UPDATE user_pets SET is_active = TRUE WHERE user_id = $1 AND species_code = $2`,
+        [req.userId, sets.companion_type],
+      );
+      await pool.query(
+        `UPDATE user_pets SET is_active = FALSE WHERE user_id = $1 AND species_code != $2`,
+        [req.userId, sets.companion_type],
+      );
+    }
+
     res.json({ ok: true, ...sets });
   } catch (err) {
     console.error('PUT companion:', err);
@@ -351,10 +371,8 @@ router.post('/adventure/claim', async (req, res) => {
     return res.status(409).json({ error: 'Уже забрано' });
   }
 
-  // ===== Выдача награды (вне транзакции — claim уже атомарен) =====
+  // ===== Выдача награды (claim уже атомарен; награда — best effort) =====
   try {
-
-    // Выдаём награду
     let rewardLabel = '';
     if (a.reward_type === 'bonus') {
       await pool.query(`UPDATE users SET bonus_balance = bonus_balance + $1 WHERE id = $2`, [a.reward_amount, userId]);

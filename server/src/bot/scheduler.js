@@ -141,7 +141,7 @@ export function startScheduler(bot) {
               {
                 parse_mode: 'Markdown',
                 reply_markup: process.env.WEBAPP_URL
-                  ? { reply_markup: { inline_keyboard: [[{ text: '🧠 Открыть MentalOS', web_app: { url: process.env.WEBAPP_URL } }]] } }
+                  ? { inline_keyboard: [[{ text: '🧠 Открыть MentalOS', web_app: { url: process.env.WEBAPP_URL } }]] }
                   : {},
               },
             );
@@ -217,17 +217,30 @@ export function startScheduler(bot) {
         }).format(new Date());
 
         // --- День рождения (приоритет, в ЛОКАЛЬНЫЙ день) ---
-        if (u.companion_birthday && new Date(u.companion_birthday).toISOString().slice(0, 10) === localDate) {
-          // ФИКС-CRITICAL: начисление ТОЛЬКО при первой отправке (дедуп ДО бонуса)
+        // ФИКС: берём birthday как строку (::text) — Date-объект даёт off-by-one
+        const bdStr = u.companion_birthday ? String(u.companion_birthday).slice(0, 10) : null;
+        if (bdStr && bdStr === localDate) {
+          // ФИКС-CRITICAL: дедуп-INSERT ПЕРВЫМ (ещё до отправки!) — даже если бот упадёт,
+          // повторного начисления не будет
           const { rows: bdDup } = await pool.query(
-            `SELECT 1 FROM pet_notified WHERE user_id = $1 AND date = CURRENT_DATE AND kind = 'birthday'`, [uid],
+            `SELECT 1 FROM pet_notified WHERE user_id = $1 AND kind = 'birthday' AND date = $2::date`, [uid, localDate],
           );
           if (!bdDup.length) {
-            await sendPetNotification(bot, uid, 'birthday', u, `${petTypeEmoji(u.companion_type)} 🎂 *${u.companion_name}* празднует день рождения!\n\nОн(а) подготовил(а) тебе подарок: 🪙 +50 бонусов!`);
+            // Помечаем СРАЗУ (атомарно) — до бонуса и до отправки
+            await pool.query(
+              `INSERT INTO pet_notified (user_id, date, kind) VALUES ($1, $2::date, 'birthday') ON CONFLICT DO NOTHING`,
+              [uid, localDate],
+            );
             await pool.query(`UPDATE users SET bonus_balance = bonus_balance + 50 WHERE id = $1`, [uid]);
             await pool.query(`INSERT INTO bonus_transactions (user_id, amount, reason) VALUES ($1, 50, 'pet_birthday')`, [uid]);
             const { logPetEvent } = await import('../routes/pet.js');
-            await logPetEvent(uid, u.companion_type, 'birthday', { bonus: 50 });
+            await logPetEvent(uid, u.active_species || 'spark', 'birthday', { bonus: 50 });
+            try {
+              await bot.sendMessage(uid, `${petTypeEmoji(u.companion_type)} 🎂 *${u.companion_name}* празднует день рождения!\n\nОн(а) подготовил(а) тебе подарок: 🪙 +50 бонусов!`, {
+                parse_mode: 'Markdown',
+                reply_markup: { inline_keyboard: process.env.WEBAPP_URL ? [[{ text: '🧠 Открыть MentalOS', web_app: { url: process.env.WEBAPP_URL } }]] : [] },
+              });
+            } catch (e) { /* юзер забанил бота — бонус уже начислен и помечен */ }
           }
         }
 
@@ -280,7 +293,7 @@ export function startScheduler(bot) {
       await bot.sendMessage(userId, text, {
         parse_mode: 'Markdown',
         reply_markup: process.env.WEBAPP_URL
-          ? { reply_markup: { inline_keyboard: [[{ text: '🧠 Открыть MentalOS', web_app: { url: process.env.WEBAPP_URL } }]] } }
+          ? { inline_keyboard: [[{ text: '🧠 Открыть MentalOS', web_app: { url: process.env.WEBAPP_URL } }]] }
           : {},
       });
       await pool.query(`INSERT INTO pet_notified (user_id, date, kind) VALUES ($1, CURRENT_DATE, $2) ON CONFLICT DO NOTHING`, [userId, kind]);
@@ -304,7 +317,7 @@ export function startScheduler(bot) {
             {
               parse_mode: 'Markdown',
               reply_markup: process.env.WEBAPP_URL
-                ? { reply_markup: { inline_keyboard: [[{ text: '🎁 Забрать находку', web_app: { url: process.env.WEBAPP_URL } }]] } }
+                ? { inline_keyboard: [[{ text: '🎁 Забрать находку', web_app: { url: process.env.WEBAPP_URL } }]] }
                 : {},
             },
           );

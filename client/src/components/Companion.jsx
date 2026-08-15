@@ -101,14 +101,11 @@ export default function Companion({ tick = 0, onEvolve, haptic, playSound }) {
   const load = async () => {
     try {
       const d = await api.getCompanion();
-      // Эволюция?
-      if (prevStage.current && d.stage && d.stage !== prevStage.current &&
-          ['egg', 'baby', 'teen', 'adult'].indexOf(d.stage) > ['egg', 'baby', 'teen', 'adult'].indexOf(prevStage.current)) {
-        onEvolve?.({ from: prevStage.current, to: d.stage, name: d.name });
-      }
+      // Эволюция детектится ТОЛЬКО на сервере (res.evolution в /log)
+      // Клиентская детекция удалена — вызывала дублирующий тост
       prevStage.current = d.stage;
       setData(d);
-      setPhraseIdx((i) => i + 1); // новая реплика на каждый reload
+      setPhraseIdx((i) => i + 1);
     } catch {}
   };
 
