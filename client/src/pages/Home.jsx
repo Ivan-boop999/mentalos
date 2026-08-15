@@ -25,7 +25,7 @@ function greeting(h) {
   return { text: 'Добрый вечер', emoji: '🌆' };
 }
 
-export default function HomePage({ habits, loading, onLog, onUnlog, onDelete, onEdit, onAdd, userName, companionTick, onEvolve }) {
+export default function HomePage({ habits, loading, onLog, onUnlog, onDelete, onEdit, onAdd, userName, companionTick, onEvolve, onOpenPet }) {
   const [sort, setSort] = useState('default');
   const [query, setQuery] = useState('');
   const [showHeatmap, setShowHeatmap] = useState(false);
@@ -82,12 +82,14 @@ export default function HomePage({ habits, loading, onLog, onUnlog, onDelete, on
       </div>
 
       {habits.length > 0 && (
-        <Companion
-          tick={companionTick}
-          onEvolve={(e) => onEvolve?.(e)}
-          haptic={hapticFeedback}
-          playSound={play}
-        />
+        <div onClick={() => onOpenPet?.()} style={{ cursor: 'pointer' }}>
+          <Companion
+            tick={companionTick}
+            onEvolve={(e) => onEvolve?.(e)}
+            haptic={hapticFeedback}
+            playSound={play}
+          />
+        </div>
       )}
 
       {habits.length > 0 && (

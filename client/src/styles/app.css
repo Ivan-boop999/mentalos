@@ -1315,3 +1315,94 @@ select:focus-visible {
   animation: pulse 2s ease-in-out infinite;
 }
 .daily-bonus-btn:disabled { animation: none; opacity: 0.6; }
+
+/* ===== Страница питомца ===== */
+.pet-page-header {
+  display: flex; align-items: center; gap: var(--space-3);
+  padding: var(--space-2) 0 var(--space-3);
+}
+.pet-page-title { flex: 1; display: flex; flex-direction: column; }
+.pet-page-title strong { font-size: var(--text-h3); font-weight: var(--fw-bold); }
+.pet-page-title span { font-size: var(--text-caption); color: var(--text-muted); }
+
+.pet-tabs { margin-bottom: var(--space-3); }
+
+.pet-stage-container {
+  border-radius: var(--radius-lg);
+  padding: var(--space-4);
+  display: flex; flex-direction: column; align-items: center;
+  position: relative; min-height: 280px; justify-content: center;
+  margin-bottom: var(--space-3);
+  overflow: visible;
+}
+.pet-birthday-banner {
+  position: absolute; top: var(--space-2); left: 50%; transform: translateX(-50%);
+  background: var(--gradient-warm); color: #fff;
+  padding: var(--space-1) var(--space-3);
+  border-radius: var(--radius-full);
+  font-size: var(--text-caption); font-weight: var(--fw-bold);
+  white-space: nowrap;
+  animation: pulse 2s ease-in-out infinite;
+}
+.pet-reaction-bubble {
+  position: absolute; bottom: var(--space-2); left: 50%; transform: translateX(-50%);
+  background: var(--card); border: 1px solid var(--border);
+  padding: var(--space-1) var(--space-3);
+  border-radius: var(--radius-sm);
+  font-size: var(--text-footnote); font-weight: var(--fw-semibold);
+  animation: bubbleIn 0.3s var(--ease-spring);
+  white-space: nowrap;
+}
+
+.pet-stats-row { display: flex; gap: var(--space-2); margin-bottom: var(--space-3); }
+.pet-stat-chip {
+  flex: 1; background: var(--glass); backdrop-filter: blur(10px);
+  border: 1px solid var(--glass-border);
+  border-radius: var(--radius-sm);
+  padding: var(--space-2) var(--space-3);
+  display: flex; flex-direction: column; align-items: center; gap: 2px;
+}
+.pet-stat-chip span { font-size: var(--text-caption2); color: var(--text-muted); }
+.pet-stat-chip strong { font-size: var(--text-footnote); font-weight: var(--fw-bold); }
+
+.pet-xp-block { padding: var(--space-3); border-radius: var(--radius-md); margin-bottom: var(--space-3); }
+.pet-xp-label { font-size: var(--text-caption); color: var(--text-muted); margin-bottom: var(--space-1); }
+
+.pet-adventure-block { padding: var(--space-3); border-radius: var(--radius-md); margin-bottom: var(--space-3); }
+
+/* Коллекция */
+.pet-collection-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: var(--space-3); }
+.pet-card-species {
+  background: var(--card); border: 2px solid var(--border);
+  border-radius: var(--radius-md); padding: var(--space-4) var(--space-2);
+  display: flex; flex-direction: column; align-items: center; gap: var(--space-1);
+  position: relative; text-align: center;
+  transition: border-color 0.2s ease;
+}
+.pet-card-species.active { border-color: var(--accent); background: var(--accent-soft); }
+.pet-card-species.locked { opacity: 0.7; }
+.pet-species-emoji { font-size: 48px; margin-bottom: var(--space-1); }
+.pet-species-title { font-size: var(--text-footnote); font-weight: var(--fw-bold); }
+.pet-species-badge {
+  position: absolute; top: var(--space-1); right: var(--space-1);
+  background: var(--gradient-main); color: #fff;
+  font-size: 9px; font-weight: 800; padding: 2px 8px;
+  border-radius: var(--radius-full);
+}
+
+/* Дневник */
+.pet-timeline { display: flex; flex-direction: column; gap: 0; position: relative; padding-left: var(--space-4); }
+.pet-timeline::before {
+  content: ''; position: absolute; left: 6px; top: 8px; bottom: 8px;
+  width: 2px; background: var(--border);
+}
+.pet-timeline-item { position: relative; padding: var(--space-2) 0 var(--space-2) var(--space-3); }
+.pet-timeline-dot {
+  position: absolute; left: -18px; top: 14px;
+  width: 10px; height: 10px; border-radius: 50%;
+  background: var(--accent); border: 2px solid var(--card);
+}
+.pet-timeline-body { display: flex; flex-direction: column; gap: 2px; }
+.pet-timeline-body strong { font-size: var(--text-footnote); }
+.pet-timeline-gift { font-size: var(--text-caption); color: var(--accent); font-weight: 600; }
+.pet-timeline-stage { font-size: var(--text-caption); color: var(--text-muted); }

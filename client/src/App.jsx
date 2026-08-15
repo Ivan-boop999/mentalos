@@ -15,6 +15,7 @@ import MoodPage from './pages/Mood.jsx';
 import JournalPage from './pages/Journal.jsx';
 import ChallengesPage from './pages/Challenges.jsx';
 import MorePage from './pages/More.jsx';
+import PetPage from './pages/PetPage.jsx';
 import LeaderboardPage from './pages/Leaderboard.jsx';
 import ArchivePage from './pages/Archive.jsx';
 import BuddiesPage from './pages/Buddies.jsx';
@@ -267,6 +268,7 @@ export default function App() {
             {page === 'recap' && <><BarChart3 size={22} strokeWidth={2.4} /> Отчёт</>}
             {page === 'tree' && <><TreePine size={22} strokeWidth={2.4} /> Дерево</>}
             {page === 'companion-shop' && <><Sparkles size={22} strokeWidth={2.4} /> Компаньон</>}
+            {page === 'pet' && <><Sparkles size={22} strokeWidth={2.4} /> Питомец</>}
           </h1>
           {settings?.level > 0 && (
             <div className="level-badge">Lv {settings.level}</div>
@@ -287,6 +289,7 @@ export default function App() {
               onAdd={openCreate}
               companionTick={companionTick}
               onEvolve={handleEvolve}
+              onOpenPet={() => navigate('pet')}
               userName={userName}
             />
           )}
@@ -306,6 +309,7 @@ export default function App() {
           {page === 'recap' && <RecapPage />}
           {page === 'tree' && <HabitTreePage habits={habits} />}
           {page === 'companion-shop' && <CompanionShopPage />}
+          {page === 'pet' && <PetPage onBack={() => navigate('home')} />}
         </main>
 
         {page === 'home' && <button className="fab" onClick={openCreate} aria-label="Добавить">+</button>}

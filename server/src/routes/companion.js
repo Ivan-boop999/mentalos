@@ -380,7 +380,7 @@ router.post('/shop/daily-bonus', async (req, res) => {
 export async function checkCompanionMilestones(userId) {
   try {
     const { rows: u } = await pool.query(
-      `SELECT companion_xp, companion_stage, companion_birthday FROM users WHERE id = $1`, [userId],
+      `SELECT companion_xp, companion_stage, companion_birthday, active_species FROM users WHERE id = $1`, [userId],
     );
     if (!u.length) return null;
     const xp = Number(u[0].companion_xp) || 0;
@@ -388,13 +388,12 @@ export async function checkCompanionMilestones(userId) {
     const newStage = stageOf(level);
     const oldStage = u[0].companion_stage || 'egg';
     const order = ['egg', 'baby', 'teen', 'adult'];
-    if (order.indexOf(newStage) <= order.indexOf(oldStage)) return null; // без перехода
+    if (order.indexOf(newStage) <= order.indexOf(oldStage)) return null;
 
     let giftLabel = '';
     if (newStage === 'baby' && !u[0].companion_birthday) {
       await pool.query(`UPDATE users SET companion_birthday = CURRENT_DATE WHERE id = $1`, [userId]);
     }
-    // Подарок эволюции: случайный невладеемый предмет или бонус
     const { rows: candidates } = await pool.query(
       `SELECT ci.code, ci.title, ci.emoji FROM companion_items ci
        WHERE NOT EXISTS (SELECT 1 FROM user_items ui WHERE ui.user_id = $1 AND ui.item_code = ci.code)
@@ -409,6 +408,13 @@ export async function checkCompanionMilestones(userId) {
       giftLabel = '🪙 +25 бонусов — подарок эволюции!';
     }
     await pool.query(`UPDATE users SET companion_stage = $1 WHERE id = $2`, [newStage, userId]);
+
+    // Событие в дневник питомца
+    const { logPetEvent } = await import('./pet.js');
+    await logPetEvent(userId, u[0].active_species, newStage === 'baby' ? 'hatch' : 'evolve', {
+      stage: newStage, gift: giftLabel,
+    });
+
     return { stage: newStage, giftLabel };
   } catch (err) {
     console.error('milestones:', err);

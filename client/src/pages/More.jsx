@@ -2,6 +2,7 @@ import { Settings as SettingsIcon, BookOpen, Trophy, ChevronRight, Crown, Archiv
 
 export default function MorePage({ onNavigate }) {
   const items = [
+    { key: 'pet', title: 'Питомец', desc: 'Дом, коллекция, дневник', Icon: Sparkles, color: '#A855F7' },
     { key: 'missions', title: 'Миссии дня', desc: 'Мини-задания за бонусы', Icon: Target, color: '#EC4899' },
     { key: 'recap', title: 'Отчёт за неделю', desc: 'Статистика и динамика', Icon: BarChart3, color: '#06B6D4' },
     { key: 'tree', title: 'Дерево привычек', desc: 'Визуальный рост от прогресса', Icon: TreePine, color: '#10B981' },

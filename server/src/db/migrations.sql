@@ -176,6 +176,41 @@ CREATE TABLE IF NOT EXISTS adventures (
 CREATE INDEX IF NOT EXISTS idx_adventures_user ON adventures(user_id);
 CREATE INDEX IF NOT EXISTS idx_adventures_active ON adventures(status, returns_at) WHERE status = 'active';
 
+-- Виды питомцев (каталог)
+CREATE TABLE IF NOT EXISTS pet_species (
+    code            TEXT PRIMARY KEY,
+    title           TEXT NOT NULL,
+    emoji           TEXT NOT NULL,
+    price           INTEGER NOT NULL DEFAULT 0,      -- 0 = бесплатный (базовые 4)
+    colors          JSONB NOT NULL,                   -- {main, light, glow, accent}
+    sort_order      INTEGER NOT NULL DEFAULT 0
+);
+
+-- Коллекция питомцев пользователя
+CREATE TABLE IF NOT EXISTS user_pets (
+    id              SERIAL PRIMARY KEY,
+    user_id         BIGINT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    species_code    TEXT NOT NULL REFERENCES pet_species(code),
+    name            TEXT NOT NULL DEFAULT 'Спарк',
+    xp              INTEGER NOT NULL DEFAULT 0,
+    mood            INTEGER NOT NULL DEFAULT 50,
+    is_active       BOOLEAN NOT NULL DEFAULT FALSE,
+    obtained_at     TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    UNIQUE (user_id, species_code)
+);
+
+-- Дневник питомца (таймлайн событий)
+CREATE TABLE IF NOT EXISTS pet_events (
+    id              SERIAL PRIMARY KEY,
+    user_id         BIGINT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    species_code    TEXT,
+    event_type      TEXT NOT NULL,                    -- hatch | evolve | adventure | birthday | visit | item
+    event_data      JSONB,
+    created_at      TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+CREATE INDEX IF NOT EXISTS idx_pet_events_user ON pet_events(user_id, created_at DESC);
+
 -- Кастомизация компаньона (шапки, очки, одежда — покупаются за бонусы)
 CREATE TABLE IF NOT EXISTS companion_items (
     id              SERIAL PRIMARY KEY,
@@ -249,6 +284,26 @@ DO $$ BEGIN ALTER TABLE users ADD COLUMN companion_trait TEXT NOT NULL DEFAULT '
 DO $$ BEGIN ALTER TABLE users ADD COLUMN companion_birthday DATE;                              EXCEPTION WHEN duplicate_column THEN NULL; END $$;
 DO $$ BEGIN ALTER TABLE users ADD COLUMN companion_stage TEXT NOT NULL DEFAULT 'egg';          EXCEPTION WHEN duplicate_column THEN NULL; END $$;
 DO $$ BEGIN ALTER TABLE users ADD COLUMN last_shop_bonus DATE;                                 EXCEPTION WHEN duplicate_column THEN NULL; END $$;
+DO $$ BEGIN ALTER TABLE users ADD COLUMN active_species TEXT NOT NULL DEFAULT 'spark';        EXCEPTION WHEN duplicate_column THEN NULL; END $$;
+
+-- ===== Seed pet_species (8 видов: 4 бесплатных + 4 премиум) =====
+INSERT INTO pet_species (code, title, emoji, price, colors, sort_order) VALUES
+  ('spark', 'Спарк', '✨', 0, '{"main":"#7C3AED","light":"#A78BFA","glow":"#C4B5FD","accent":"#FBBF24"}', 1),
+  ('leaf', 'Листик', '🌿', 0, '{"main":"#10B981","light":"#34D399","glow":"#6EE7B7","accent":"#84CC16"}', 2),
+  ('drop', 'Капелька', '💧', 0, '{"main":"#06B6D4","light":"#22D3EE","glow":"#67E8F9","accent":"#3B82F6"}', 3),
+  ('flame', 'Огонёк', '🔥', 0, '{"main":"#F59E0B","light":"#FBBF24","glow":"#FCD34D","accent":"#EF4444"}', 4),
+  ('star', 'Звёздный', '🌟', 500, '{"main":"#F59E0B","light":"#FCD34D","glow":"#FDE68A","accent":"#7C3AED"}', 5),
+  ('frost', 'Ледяной', '❄️', 800, '{"main":"#0EA5E9","light":"#7DD3FC","glow":"#BAE6FD","accent":"#06B6D4"}', 6),
+  ('shadow', 'Теневой', '🌑', 1000, '{"main":"#1E1B4B","light":"#4C1D95","glow":"#7C3AED","accent":"#EC4899"}', 7),
+  ('rainbow', 'Радужный', '🌈', 2000, '{"main":"#EC4899","light":"#F59E0B","glow":"#84CC16","accent":"#06B6D4"}', 8)
+ON CONFLICT (code) DO NOTHING;
+
+-- Автосоздание базового питомца при первом входе (миграция для существующих юзеров)
+INSERT INTO user_pets (user_id, species_code, name, is_active)
+SELECT u.id, u.active_species, u.companion_name, TRUE
+FROM users u
+WHERE NOT EXISTS (SELECT 1 FROM user_pets up WHERE up.user_id = u.id)
+ON CONFLICT DO NOTHING;
 DO $$ BEGIN ALTER TABLE users ADD COLUMN streak_insurance BOOLEAN NOT NULL DEFAULT FALSE;    EXCEPTION WHEN duplicate_column THEN NULL; END $$; -- активная страховка стрика
 DO $$ BEGIN ALTER TABLE users ADD COLUMN companion_equipped JSONB NOT NULL DEFAULT '{}'::jsonb; EXCEPTION WHEN duplicate_column THEN NULL; END $$; -- {hat, glasses, accessory} -- 0-100
 
