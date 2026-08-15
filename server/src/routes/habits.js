@@ -71,6 +71,19 @@ router.get('/', async (req, res) => {
   }
 });
 
+/** Санитизация: убираем NULL-байты и control-символы (PostgreSQL их не принимает) */
+function sanitize(str) {
+  if (typeof str !== 'string') return str;
+  return str.replace(/[\u0000-\u0008\u000B\u000C\u000E-\u001F\u007F]/g, '');
+}
+
+/** Валидация даты YYYY-MM-DD */
+function isValidDate(s) {
+  if (typeof s !== 'string' || !/^\d{4}-\d{2}-\d{2}$/.test(s)) return false;
+  const d = new Date(s + 'T00:00:00Z');
+  return !isNaN(d.getTime()) && d.toISOString().slice(0, 10) === s;
+}
+
 /** POST /api/habits — создать (с поддержкой goal_type + психология) */
 router.post('/', async (req, res) => {
   const userId = req.userId;
@@ -80,7 +93,10 @@ router.post('/', async (req, res) => {
     goalType = 'boolean', goalTarget = 1, goalUnit = 'раз',
     cue = null, identity = null, timeOfDay = 'any', stackAfter = null,
   } = req.body;
-  if (!title?.trim()) return res.status(400).json({ error: 'Название обязательно' });
+  const cleanTitle = sanitize(title || '').trim();
+  if (!cleanTitle) return res.status(400).json({ error: 'Название обязательно' });
+  // ФИКС-ФАЗЗ: goalTarget минимум 1, максимум 100000
+  const cleanTarget = Math.max(1, Math.min(100000, Number(goalTarget) || 1));
 
   try {
     const { rows } = await pool.query(
@@ -89,8 +105,8 @@ router.post('/', async (req, res) => {
        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14)
        RETURNING id, title, emoji, color, frequency, reminder_time, best_streak,
                  goal_type, goal_target, goal_unit, cue, identity, time_of_day, stack_after`,
-      [userId, title.trim(), emoji, color, frequency, reminderTime, categoryId,
-       goalType, goalTarget, goalUnit, cue, identity, timeOfDay, stackAfter],
+      [userId, cleanTitle, sanitize(emoji), color, frequency, reminderTime, categoryId,
+       goalType, cleanTarget, goalUnit, cue, identity, timeOfDay, stackAfter],
     );
     const habit = rows[0];
     habit.frequency = typeof habit.frequency === 'string' ? JSON.parse(habit.frequency) : habit.frequency;
@@ -263,13 +279,15 @@ router.post('/:id/log', async (req, res) => {
   const userId = req.userId;
   const habitId = Number(req.params.id);
   const todayIso = new Date().toISOString().slice(0, 10);
-  const date = req.body?.date || todayIso;
+  const rawDate = req.body?.date || todayIso;
+  if (!isValidDate(rawDate)) return res.status(400).json({ error: 'Неверный формат даты (YYYY-MM-DD)' });
+  const date = rawDate;
   const status = req.body?.status || 'done';
   const value = req.body?.value !== undefined ? Math.max(0, Number(req.body.value) || 0) : null;
-  const note = req.body?.note;
+  const note = req.body?.note !== undefined ? sanitize(req.body.note) : undefined;
 
   try {
-    // ===== P0-3 FIX: IDOR — проверяем что привычка принадлежит пользователю =====
+    // ===== IDOR-проверка =====
     const { rows: hRows } = await pool.query(
       `SELECT frequency, best_streak, goal_type, goal_target, comeback_shield, time_of_day
        FROM habits WHERE id = $1 AND user_id = $2 AND archived = FALSE`,
@@ -277,35 +295,58 @@ router.post('/:id/log', async (req, res) => {
     );
     if (!hRows.length) return res.status(404).json({ error: 'Привычка не найдена' });
 
-    // ===== P0-2 FIX: получаем streak_insurance из users =====
-    const { rows: uRows } = await pool.query(`SELECT streak_insurance FROM users WHERE id = $1`, [userId]);
-    const hasInsurance = uRows[0]?.streak_insurance || false;
-
-    // Корректировка: для measurable берём статус 'done' только если value >= goal_target
+    // Корректировка measurable
     let finalStatus = status;
     if (status === 'done' && value !== null && hRows[0].goal_type === 'measurable' && value < (hRows[0].goal_target || 1)) {
       finalStatus = 'partial';
     }
 
-    // ===== ФИКС-A6 (АНТИ-ФАРМ): предыдущий статус ДО upsert =====
-    const { rows: prevRows } = await pool.query(
-      `SELECT status FROM habit_logs WHERE habit_id = $1 AND user_id = $2 AND log_date = $3`,
-      [habitId, userId, date],
-    );
-    const prevStatus = prevRows[0]?.status || null;
-    // Правила наград (тумблер done↔skip больше не фармит):
-    //   награда за done — только если ПРЕДЫДУЩИЙ статус не 'done'
-    //   штраф за skip/partial — только если ПРЕДЫДУЩИЙ статус не 'skip'/'partial'
-    const grantDone = finalStatus === 'done' && prevStatus !== 'done';
-    const penalize = (finalStatus === 'skip' || finalStatus === 'partial') && prevStatus !== 'skip' && prevStatus !== 'partial';
-
-    // upsert отметки
+    // ===== UPSERT отметки + сброс rewarded при смене на не-done =====
     await pool.query(
       `INSERT INTO habit_logs (habit_id, user_id, log_date, status, value)
        VALUES ($1, $2, $3, $4, $5)
-       ON CONFLICT (habit_id, log_date) DO UPDATE SET status = EXCLUDED.status, value = EXCLUDED.value`,
+       ON CONFLICT (habit_id, log_date) DO UPDATE SET
+         status = EXCLUDED.status,
+         value = EXCLUDED.value,
+         rewarded = CASE WHEN EXCLUDED.status != 'done' THEN FALSE ELSE habit_logs.rewarded END`,
       [habitId, userId, date, finalStatus, value],
     );
+
+    // ===== АТОМАРНЫЙ CLAIM (ФИКС-ГОНКА, без advisory lock) =====
+    // UPDATE с WHERE rewarded=FALSE — атомарен в PostgreSQL.
+    // Только ОДИН параллельный запрос получит строку → только он даст награду.
+    let grantDone = false;
+    if (finalStatus === 'done') {
+      const { rows: claimed } = await pool.query(
+        `UPDATE habit_logs SET rewarded = TRUE
+         WHERE habit_id = $1 AND user_id = $2 AND log_date = $3 AND status = 'done' AND rewarded = FALSE
+         RETURNING id`,
+        [habitId, userId, date],
+      );
+      grantDone = claimed.length > 0;
+    }
+
+    // Штраф за skip/partial: проверяем, был ли уже skip (rewarded=FALSE + skip)
+    let penalize = false;
+    if (finalStatus === 'skip' || finalStatus === 'partial') {
+      const { rows: prevSkip } = await pool.query(
+        `SELECT id FROM habit_logs
+         WHERE habit_id = $1 AND user_id = $2 AND log_date = $3 AND status IN ('skip','partial') AND rewarded = FALSE`,
+        [habitId, userId, date],
+      );
+      // penalize только если это ПЕРВАЯ skip-запись для этой даты
+      // (после upsert статус уже skip — если был done до, то rewarded=true)
+      penalize = prevSkip.length > 0 && !(await pool.query(
+        `SELECT 1 FROM bonus_transactions WHERE user_id = $1 AND reason = 'skip_penalty' AND meta->>'date' = $2 AND meta->>'habit' = $3 LIMIT 1`,
+        [userId, date, String(habitId)],
+      )).rows.length;
+      if (penalize) {
+        await pool.query(
+          `INSERT INTO bonus_transactions (user_id, amount, reason, meta) VALUES ($1, 0, 'skip_penalty', $2)`,
+          [userId, JSON.stringify({ date, habit: String(habitId) })],
+        );
+      }
+    }
 
     // upsert заметки
     if (note !== undefined) {
@@ -319,18 +360,19 @@ router.post('/:id/log', async (req, res) => {
           [habitId, userId, date, note],
         );
       }
-      // P0-1 FIX: миссия note
       updateMissionsOnAction(userId, { type: 'note' });
     }
 
-    // Считаем актуальный streak (только логи этого пользователя)
+    // Считаем актуальный streak
     const freq = hRows[0] ? (typeof hRows[0].frequency === 'string' ? JSON.parse(hRows[0].frequency) : hRows[0].frequency) : null;
     const { rows: logRows } = await pool.query(
       `SELECT log_date::text AS date, status, value FROM habit_logs WHERE habit_id = $1 AND user_id = $2 ORDER BY log_date`,
       [habitId, userId],
     );
 
-    // ФИКС-B: щит действует только если он есть у привычки/пользователя (синхронно с GET)
+    // Щит + страховка
+    const { rows: uRows2 } = await pool.query(`SELECT streak_insurance FROM users WHERE id = $1`, [userId]);
+    const hasInsurance = uRows2[0]?.streak_insurance || false;
     const hasShield = hRows[0].comeback_shield || hasInsurance;
     const streakWithShield = calcStreak(logRows, freq, true);
     const streakNoShield = calcStreak(logRows, freq, false);

@@ -267,6 +267,7 @@ DO $$ BEGIN ALTER TABLE habits ADD COLUMN comeback_shield BOOLEAN NOT NULL DEFAU
 
 -- habit_logs: расширяем для skip и measurable
 DO $$ BEGIN ALTER TABLE habit_logs ADD COLUMN status TEXT NOT NULL DEFAULT 'done';          EXCEPTION WHEN duplicate_column THEN NULL; END $$;
+DO $$ BEGIN ALTER TABLE habit_logs ADD COLUMN rewarded BOOLEAN NOT NULL DEFAULT FALSE;      EXCEPTION WHEN duplicate_column THEN NULL; END $$;
 -- status: 'done' (выполнено), 'skip' (пропуск, не портит streak), 'partial' (частично)
 DO $$ BEGIN ALTER TABLE habit_logs ADD COLUMN value INTEGER;                                EXCEPTION WHEN duplicate_column THEN NULL; END $$;
 -- value: для measurable целей — сколько выполнено (напр. 1500 мл воды)
