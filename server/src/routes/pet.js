@@ -21,7 +21,7 @@ router.get('/', async (req, res) => {
   try {
     // Активный питомец (XP и mood берём из users — единый источник истины)
     const { rows: pet } = await pool.query(
-      `SELECT up.id, up.species_code, up.name, up.is_active, up.obtained_at,
+      `SELECT up.id, up.species_code, up.name, up.is_active, up.is_shiny, up.obtained_at,
               ps.title AS species_title, ps.emoji AS species_emoji, ps.colors,
               u.companion_xp AS xp, u.companion_mood AS mood
        FROM user_pets up
@@ -55,7 +55,7 @@ router.get('/', async (req, res) => {
 
     // Коллекция всех питомцев
     const { rows: collection } = await pool.query(
-      `SELECT up.species_code, up.name, up.xp, up.mood, up.is_active, up.obtained_at::text AS obtained,
+      `SELECT up.species_code, up.name, up.xp, up.mood, up.is_active, up.is_shiny, up.obtained_at::text AS obtained,
               ps.title, ps.emoji, ps.price
        FROM user_pets up JOIN pet_species ps ON ps.code = up.species_code
        WHERE up.user_id = $1 ORDER BY ps.sort_order`, [userId],
@@ -113,6 +113,7 @@ router.get('/', async (req, res) => {
         trait: trait[0]?.companion_trait || 'curious',
         isBirthday,
         birthday: trait[0]?.birthday_str || null,
+        isShiny: !!p.is_shiny,
       },
       equipped: parseJson(eq[0]?.companion_equipped, {}),
       adventure: adv[0] ? { status: adv[0].status === 'completed' ? 'ready' : 'active', returnsAt: adv[0].returns_at, canClaim: adv[0].status === 'completed' } : null,
@@ -193,23 +194,67 @@ router.post('/buy', async (req, res) => {
     if (balance < price) { await client.query('ROLLBACK'); return res.status(402).json({ error: 'Недостаточно бонусов', need: price - balance }); }
 
     await client.query(`UPDATE users SET bonus_balance = bonus_balance - $1 WHERE id = $2`, [price, userId]);
+
+    // ✨ ШЕЙНИ: 1% шанс блестящего питомца
+    const isShiny = Math.random() < 0.01;
     await client.query(
-      `INSERT INTO user_pets (user_id, species_code, name, is_active) VALUES ($1, $2, $3, FALSE)`,
-      [userId, species, sp[0].title],
+      `INSERT INTO user_pets (user_id, species_code, name, is_active, is_shiny) VALUES ($1, $2, $3, FALSE, $4)`,
+      [userId, species, sp[0].title, isShiny],
     );
     await client.query(
       `INSERT INTO bonus_transactions (user_id, amount, reason, meta) VALUES ($1, $2, 'pet_purchase', $3)`,
-      [userId, -price, JSON.stringify({ species })],
+      [userId, -price, JSON.stringify({ species, shiny: isShiny })],
     );
     await client.query(
       `INSERT INTO pet_events (user_id, species_code, event_type, event_data) VALUES ($1, $2, 'new_pet', $3)`,
-      [userId, species, JSON.stringify({ title: sp[0].title, emoji: sp[0].emoji })],
+      [userId, species, JSON.stringify({ title: sp[0].title, emoji: sp[0].emoji, shiny: isShiny })],
     );
     await client.query('COMMIT');
-    res.json({ ok: true, balance: balance - price });
+    res.json({ ok: true, balance: balance - price, shiny: isShiny });
   } catch (err) {
     await client.query('ROLLBACK').catch(() => {});
     console.error('pet buy:', err);
+    res.status(500).json({ error: 'Ошибка сервера' });
+  } finally {
+    client.release();
+  }
+});
+
+/** POST /api/pet/gift — отправить предмет питомцу бадди */
+router.post('/gift', async (req, res) => {
+  const userId = req.userId;
+  const { buddyId, itemCode } = req.body;
+  if (!buddyId || !itemCode) return res.status(400).json({ error: 'Укажи buddyId и itemCode' });
+
+  const client = await pool.connect();
+  try {
+    await client.query('BEGIN');
+    const { rows: buddy } = await client.query(
+      `SELECT 1 FROM buddies WHERE user_id = $1 AND buddy_id = $2 AND status = 'accepted'`,
+      [userId, Number(buddyId)],
+    );
+    if (!buddy.length) { await client.query('ROLLBACK'); return res.status(403).json({ error: 'Это не твой бадди' }); }
+
+    const { rows: owned } = await client.query(
+      `SELECT 1 FROM user_items WHERE user_id = $1 AND item_code = $2`, [userId, itemCode],
+    );
+    if (!owned.length) { await client.query('ROLLBACK'); return res.status(403).json({ error: 'У тебя нет этого предмета' }); }
+
+    const { rows: item } = await client.query(
+      `SELECT title, emoji FROM companion_items WHERE code = $1`, [itemCode],
+    );
+
+    await client.query(`DELETE FROM user_items WHERE user_id = $1 AND item_code = $2`, [userId, itemCode]);
+    await client.query(
+      `INSERT INTO user_items (user_id, item_code) VALUES ($1, $2) ON CONFLICT DO NOTHING`,
+      [Number(buddyId), itemCode],
+    );
+
+    await client.query('COMMIT');
+    res.json({ ok: true, item: item[0] });
+  } catch (err) {
+    await client.query('ROLLBACK').catch(() => {});
+    console.error('pet gift:', err);
     res.status(500).json({ error: 'Ошибка сервера' });
   } finally {
     client.release();

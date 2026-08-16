@@ -167,9 +167,10 @@ CREATE TABLE IF NOT EXISTS adventures (
     started_at      TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     returns_at      TIMESTAMPTZ NOT NULL,
     status          TEXT NOT NULL DEFAULT 'active',  -- active | completed | claimed
-    reward_type     TEXT,                           -- bonus | xp | item | mood
+    reward_type     TEXT,                           -- bonus | xp | item | mood | egg
     reward_amount   INTEGER,
     reward_item     TEXT,
+    egg_species     TEXT,                           -- если reward_type='egg' → какой вид вылупится
     claimed_at      TIMESTAMPTZ
 );
 
@@ -195,6 +196,7 @@ CREATE TABLE IF NOT EXISTS user_pets (
     xp              INTEGER NOT NULL DEFAULT 0,
     mood            INTEGER NOT NULL DEFAULT 50,
     is_active       BOOLEAN NOT NULL DEFAULT FALSE,
+    is_shiny        BOOLEAN NOT NULL DEFAULT FALSE,
     obtained_at     TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     UNIQUE (user_id, species_code)
 );

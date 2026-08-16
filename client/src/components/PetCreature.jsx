@@ -94,7 +94,11 @@ export default function PetCreature({ stage = 'egg', species = 'spark', colors =
     return () => { clearTimeout(iv); clearTimeout(t); };
   }, [stage, sleeping, animSpeed]);
 
-  // === EYE TRACKING ===
+  // === EYE TRACKING + Поглаживание ===
+  const [isPetting, setIsPetting] = useState(false);
+  const petDist = useRef(0);
+  const petHeartTimer = useRef(null);
+
   const handlePointerMove = useCallback((e) => {
     if (!containerRef.current || stage === 'egg' || sleeping) return;
     const rect = containerRef.current.getBoundingClientRect();
@@ -104,7 +108,42 @@ export default function PetCreature({ stage = 'egg', species = 'spark', colors =
     const dy = (e.clientY - cy) / (rect.height / 2);
     setEyePos({ x: Math.max(-1, Math.min(1, dx)), y: Math.max(-1, Math.min(1, dy)) });
     setTilt(dx * 8);
-  }, [stage, sleeping]);
+
+    // Поглаживание: если палец внизу и двигается
+    if (e.buttons > 0 || e.pointerType === 'touch') {
+      petDist.current += Math.abs(e.movementX || 0) + Math.abs(e.movementY || 0);
+      if (petDist.current > 50 && !isPetting) {
+        setIsPetting(true);
+        setReact('laugh');
+        haptic?.('light');
+        // Сердечки каждые 500мс
+        petHeartTimer.current = setInterval(() => {
+          const items = Array.from({ length: 2 }, () => ({
+            id: ++heartId.current,
+            x: Math.random() * 60 - 30,
+            delay: 0,
+            scale: 0.6 + Math.random() * 0.4,
+            emoji: '💜',
+          }));
+          setHearts((h) => [...h, ...items]);
+          setTimeout(() => setHearts((h) => h.filter((x) => !items.find((i) => i.id === x.id))), 1200);
+        }, 500);
+      }
+    }
+  }, [stage, sleeping, isPetting, haptic]);
+
+  const handlePointerUp = useCallback(() => {
+    if (isPetting) {
+      setIsPetting(false);
+      petDist.current = 0;
+      setReact(null);
+      if (petHeartTimer.current) clearInterval(petHeartTimer.current);
+    }
+  }, [isPetting]);
+
+  useEffect(() => () => {
+    if (petHeartTimer.current) clearInterval(petHeartTimer.current);
+  }, []);
 
   // === SQUASH & HEARTS ===
   const doSquash = useCallback((n = 3) => {
@@ -192,11 +231,12 @@ export default function PetCreature({ stage = 'egg', species = 'spark', colors =
     <div
       ref={containerRef}
       onPointerMove={handlePointerMove}
-      onPointerLeave={() => { setEyePos({ x: 0, y: 0 }); setTilt(0); }}
-      className={`species-${species} ${squash ? `reaction-${species}` : ''}`}
+      onPointerUp={handlePointerUp}
+      onPointerLeave={() => { setEyePos({ x: 0, y: 0 }); setTilt(0); handlePointerUp(); }}
+      className={`species-${species} ${squash ? `reaction-${species}` : ''} ${isPetting ? 'is-petting' : ''}`}
       style={{
         position: 'relative', width: size, height: size * 1.15,
-        perspective: '600px', cursor: 'pointer', touchAction: 'none',
+        perspective: '600px', cursor: 'grab', touchAction: 'none',
       }}
     >
       {/* ФОН: день/ночь/закат */}

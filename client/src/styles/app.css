@@ -1756,3 +1756,61 @@ select:focus-visible {
   from { transform: rotate(0deg); }
   to { transform: rotate(360deg); }
 }
+
+/* ===== ШЕЙНИ-ВАРИАНТЫ ===== */
+.shiny-badge {
+  position: absolute; top: var(--space-2); right: var(--space-2);
+  background: linear-gradient(135deg, #FFD700, #FFA500);
+  color: #fff;
+  font-size: 10px; font-weight: 800;
+  padding: 3px 10px;
+  border-radius: var(--radius-full);
+  animation: shinyPulse 1.5s ease-in-out infinite;
+  box-shadow: 0 0 10px rgba(255, 215, 0, 0.5);
+}
+@keyframes shinyPulse {
+  0%, 100% { box-shadow: 0 0 5px rgba(255, 215, 0, 0.3); }
+  50% { box-shadow: 0 0 20px rgba(255, 215, 0, 0.8); }
+}
+.shiny-aura {
+  position: absolute; inset: -5%;
+  background: radial-gradient(circle, rgba(255,215,0,0.15) 0%, transparent 70%);
+  border-radius: 50%;
+  pointer-events: none;
+  animation: shinyAura 2s ease-in-out infinite;
+}
+@keyframes shinyAura {
+  0%, 100% { opacity: 0.3; }
+  50% { opacity: 0.7; }
+}
+.shiny-sparkle {
+  position: absolute;
+  font-size: 12px;
+  animation: shinyTwinkle 1.2s ease-in-out infinite;
+  pointer-events: none;
+}
+@keyframes shinyTwinkle {
+  0%, 100% { opacity: 0; transform: scale(0.5); }
+  50% { opacity: 1; transform: scale(1.2); }
+}
+
+/* ===== ПОГЛАЖИВАНИЕ ===== */
+.is-petting { cursor: grabbing !important; }
+.is-petting svg { filter: brightness(1.1); }
+.is-petting .pet-breath { animation-duration: 0.5s !important; }
+
+/* ===== Кнопки фотосессия/подарок ===== */
+.pet-action-row {
+  display: flex; gap: var(--space-2); margin-top: var(--space-2);
+}
+.pet-action-btn {
+  flex: 1; display: flex; align-items: center; justify-content: center; gap: 6px;
+  padding: var(--space-2) var(--space-3);
+  background: var(--glass); backdrop-filter: blur(10px);
+  border: 1.5px solid var(--accent);
+  color: var(--accent);
+  border-radius: var(--radius-sm);
+  font-size: var(--text-caption); font-weight: var(--fw-bold);
+  transition: all 0.2s ease;
+}
+.pet-action-btn:active { transform: scale(0.96); background: var(--accent-soft); }

@@ -298,12 +298,13 @@ router.post('/adventure/start', async (req, res) => {
       return res.status(409).json({ error: 'Питомец уже в приключении', adventure: active[0] });
     }
 
-    // Рандомим награду заранее (предмет — только из невладеемых)
+    // Рандомим награду заранее (предмет — только из невладеемых; 5% шанс яйца)
     const rewards = [
-      { type: 'bonus', weight: 35, amount: [10, 15, 20, 25] },
-      { type: 'xp', weight: 25, amount: [20, 30, 40] },
-      { type: 'mood', weight: 20, amount: [10, 15] },
+      { type: 'bonus', weight: 33, amount: [10, 15, 20, 25] },
+      { type: 'xp', weight: 24, amount: [20, 30, 40] },
+      { type: 'mood', weight: 18, amount: [10, 15] },
       { type: 'item', weight: 20 },
+      { type: 'egg', weight: 5 },  // 🥚 Яйцо — случайный вид!
     ];
     const total = rewards.reduce((s, r) => s + r.weight, 0);
     let roll = Math.random() * total;
@@ -311,6 +312,20 @@ router.post('/adventure/start', async (req, res) => {
     for (const r of rewards) { roll -= r.weight; if (roll <= 0) { reward = r; break; } }
 
     let rewardItem = null;
+    let eggSpecies = null;
+    if (reward.type === 'egg') {
+      // Ищем вид, которого у юзера ещё нет
+      const { rows: unowned } = await pool.query(
+        `SELECT ps.code, ps.title, ps.emoji FROM pet_species ps
+         WHERE NOT EXISTS (SELECT 1 FROM user_pets up WHERE up.user_id = $1 AND up.species_code = ps.code)
+         ORDER BY RANDOM() LIMIT 1`, [userId],
+      );
+      if (unowned.length) {
+        eggSpecies = unowned[0].code;
+      } else {
+        reward = { type: 'bonus', amount: [25] }; // всё куплено → бонусом
+      }
+    }
     if (reward.type === 'item') {
       const { rows: candidates } = await pool.query(
         `SELECT ci.code FROM companion_items ci
@@ -324,9 +339,9 @@ router.post('/adventure/start', async (req, res) => {
 
     const returnsAt = new Date(Date.now() + ADVENTURE_HOURS * 3600 * 1000);
     await pool.query(
-      `INSERT INTO adventures (user_id, returns_at, reward_type, reward_amount, reward_item)
-       VALUES ($1, $2, $3, $4, $5)`,
-      [userId, returnsAt.toISOString(), reward.type, amount, rewardItem],
+      `INSERT INTO adventures (user_id, returns_at, reward_type, reward_amount, reward_item, egg_species)
+       VALUES ($1, $2, $3, $4, $5, $6)`,
+      [userId, returnsAt.toISOString(), reward.type, amount, rewardItem, eggSpecies],
     );
     res.json({ ok: true, returnsAt: returnsAt.toISOString(), hours: ADVENTURE_HOURS });
   } catch (err) {
@@ -374,6 +389,7 @@ router.post('/adventure/claim', async (req, res) => {
   // ===== Выдача награды (claim уже атомарен; награда — best effort) =====
   try {
     let rewardLabel = '';
+    let eggResult = null;
     if (a.reward_type === 'bonus') {
       await pool.query(`UPDATE users SET bonus_balance = bonus_balance + $1 WHERE id = $2`, [a.reward_amount, userId]);
       await pool.query(`INSERT INTO bonus_transactions (user_id, amount, reason) VALUES ($1, $2, 'adventure')`, [userId, a.reward_amount]);
@@ -388,13 +404,25 @@ router.post('/adventure/claim', async (req, res) => {
       await pool.query(`INSERT INTO user_items (user_id, item_code) VALUES ($1, $2) ON CONFLICT DO NOTHING`, [userId, a.reward_item]);
       const { rows: it } = await pool.query(`SELECT title, emoji FROM companion_items WHERE code = $1`, [a.reward_item]);
       rewardLabel = `${it[0]?.emoji || '🎁'} ${it[0]?.title || 'Подарок'} (бесплатно!)`;
+    } else if (a.reward_type === 'egg' && a.egg_species) {
+      // 🥚 ЯЙЦО: создаём нового питомца!
+      const { rows: sp } = await pool.query(`SELECT title, emoji FROM pet_species WHERE code = $1`, [a.egg_species]);
+      const isShiny = Math.random() < 0.05; // шейни-шанс выше из яиц
+      await pool.query(
+        `INSERT INTO user_pets (user_id, species_code, name, is_active, is_shiny) VALUES ($1, $2, $3, FALSE, $4)
+         ON CONFLICT (user_id, species_code) DO NOTHING`,
+        [userId, a.egg_species, sp[0]?.title || 'Питомец', isShiny],
+      );
+      rewardLabel = `🥚→${sp[0]?.emoji || '🐾'} ${sp[0]?.title || 'Новый питомец'}${isShiny ? ' ✨SHINY!' : ''}`;
+      eggResult = { species: a.egg_species, title: sp[0]?.title, emoji: sp[0]?.emoji, shiny: isShiny };
+      const { logPetEvent } = await import('./pet.js');
+      await logPetEvent(userId, a.egg_species, 'new_pet', { from: 'egg', shiny: isShiny });
     }
-    await pool.query(`UPDATE adventures SET status = 'claimed', claimed_at = NOW() WHERE id = $1`, [a.id]);
     // Событие в дневник питомца
     const { logPetEvent } = await import('./pet.js');
-    const { rows: sp } = await pool.query(`SELECT active_species FROM users WHERE id = $1`, [req.userId]);
-    await logPetEvent(req.userId, sp[0]?.active_species, 'adventure', { reward: rewardLabel });
-    res.json({ ok: true, rewardLabel });
+    const { rows: sp2 } = await pool.query(`SELECT active_species FROM users WHERE id = $1`, [userId]);
+    await logPetEvent(userId, sp2[0]?.active_species, 'adventure', { reward: rewardLabel });
+    res.json({ ok: true, rewardLabel, egg: eggResult });
   } catch (err) {
     console.error('adventure claim:', err);
     res.status(500).json({ error: 'Ошибка сервера' });

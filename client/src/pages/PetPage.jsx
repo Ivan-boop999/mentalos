@@ -1,7 +1,7 @@
-import { useEffect, useState, useCallback } from 'react';
+import { useEffect, useState, useCallback, useRef } from 'react';
 import { api } from '../api/client';
 import PetCreature from '../components/PetCreature.jsx';
-import { ArrowLeft, MapPin, Gift, Clock, Sparkles, Pencil, Check } from 'lucide-react';
+import { ArrowLeft, MapPin, Gift, Clock, Sparkles, Pencil, Check, Camera, Send } from 'lucide-react';
 import { useTelegram } from '../hooks/useTelegram';
 import { useSound } from '../hooks/useSound';
 
@@ -20,20 +20,82 @@ export default function PetPage({ onBack }) {
   const [busy, setBusy] = useState(false);
   const [renaming, setRenaming] = useState(false);
   const [nameDraft, setNameDraft] = useState('');
+  const [buddies, setBuddies] = useState([]);
+  const [inventoryItems, setInventoryItems] = useState([]);
+  const [giftOpen, setGiftOpen] = useState(false);
+  const [giftBuddy, setGiftBuddy] = useState('');
+  const [giftItem, setGiftItem] = useState('');
+  const containerRef = useRef(null);
   const { hapticFeedback } = useTelegram();
   const { play } = useSound();
 
   const load = useCallback(async () => {
     try {
-      const [petData, shop] = await Promise.all([api.getPet(), api.getCompanionShop().catch(() => [])]);
+      const [petData, shop, bud, inv] = await Promise.all([
+        api.getPet(),
+        api.getCompanionShop().catch(() => []),
+        api.getBuddies().catch(() => ({ accepted: [] })),
+        api.getCompanionInventory().catch(() => ({ owned: [] })),
+      ]);
       setData(petData);
       setNameDraft(petData?.pet?.name || '');
-      // Динамическая карта эмодзи предметов (для экипировки на SVG)
       const m = {};
       for (const item of shop || []) m[item.code] = item.emoji;
       setEmojiMap(m);
+      setBuddies(bud?.accepted || []);
+      setInventoryItems((inv?.owned || []).filter((i) => !i.equipped));
     } catch (e) { console.error('PetPage load:', e); }
   }, []);
+
+  // 📸 Фотосессия: рендерим SVG питомца в canvas → PNG
+  const takePhoto = useCallback(() => {
+    const svg = containerRef.current?.querySelector('svg');
+    if (!svg) return;
+    const svgData = new XMLSerializer().serializeToString(svg);
+    const canvas = document.createElement('canvas');
+    canvas.width = 500;
+    canvas.height = 600;
+    const ctx = canvas.getContext('2d');
+
+    // Фон
+    const grad = ctx.createLinearGradient(0, 0, 0, canvas.height);
+    grad.addColorStop(0, pet.colors?.light || '#A78BFA');
+    grad.addColorStop(1, pet.colors?.main || '#7C3AED');
+    ctx.fillStyle = grad;
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+    // Имя
+    ctx.fillStyle = '#FFF';
+    ctx.font = 'bold 36px system-ui, sans-serif';
+    ctx.textAlign = 'center';
+    ctx.fillText(pet.name, canvas.width / 2, 50);
+    ctx.font = '20px system-ui, sans-serif';
+    ctx.fillText(`${pet.speciesEmoji} ${STAGE_LABEL[pet.stage]} · Lv ${pet.level}`, canvas.width / 2, 82);
+    if (pet.isShiny) {
+      ctx.font = 'bold 24px system-ui, sans-serif';
+      ctx.fillStyle = '#FFD700';
+      ctx.fillText('✨ SHINY', canvas.width / 2, 110);
+    }
+
+    // SVG питомца
+    const img = new Image();
+    const blob = new Blob([svgData], { type: 'image/svg+xml' });
+    const url = URL.createObjectURL(blob);
+    img.onload = () => {
+      ctx.drawImage(img, 50, 120, 400, 400);
+      // Подпись
+      ctx.fillStyle = 'rgba(255,255,255,0.6)';
+      ctx.font = '16px system-ui, sans-serif';
+      ctx.fillText('MentalOS', canvas.width / 2, canvas.height - 20);
+      URL.revokeObjectURL(url);
+      // Скачиваем
+      const a = document.createElement('a');
+      a.download = `mentalos-${pet.name}-${Date.now()}.png`;
+      a.href = canvas.toDataURL('image/png');
+      a.click();
+    };
+    img.src = url;
+  }, [pet]);
   useEffect(() => { load(); }, [load]);
 
   if (!data) return <div className="page"><div className="empty-state">Загрузка…</div></div>;
@@ -109,8 +171,8 @@ export default function PetPage({ onBack }) {
             </div>
           ) : (
             <>
-              <strong>{pet.name} <Pencil size={12} style={{ opacity: 0.4, display: 'inline' }} /></strong>
-              <span>{pet.speciesEmoji} {STAGE_LABEL[pet.stage]} · Lv {pet.level}</span>
+              <strong>{pet.name} {pet.isShiny && '✨'} <Pencil size={12} style={{ opacity: 0.4, display: 'inline' }} /></strong>
+              <span>{pet.speciesEmoji} {STAGE_LABEL[pet.stage]} · Lv {pet.level}{pet.isShiny ? ' · Shiny!' : ''}</span>
             </>
           )}
         </div>
@@ -127,8 +189,10 @@ export default function PetPage({ onBack }) {
       {/* === ДОМ === */}
       {tab === 'home' && (
         <>
-          <div className="pet-stage-container glass">
+          <div className="pet-stage-container glass" ref={containerRef}>
             {pet.isBirthday && <div className="pet-birthday-banner">🎂 Сегодня День Рождения!</div>}
+            {pet.isShiny && <div className="shiny-badge">✨ SHINY</div>}
+            {pet.isShiny && <div className="shiny-aura" />}
             <PetCreature
               stage={pet.stage} species={pet.species} colors={pet.colors}
               mood={pet.mood} size={220} equipped={equipped} emojiMap={emojiMap}
@@ -165,6 +229,74 @@ export default function PetPage({ onBack }) {
                 <div className="adventure-status"><Clock size={14} /> В пути · {advLeft >= 60 ? `${Math.floor(advLeft / 60)} ч ${advLeft % 60} м` : `${advLeft} мин`}</div>
               )}
               {adventure?.canClaim && <button className="adventure-btn claim" onClick={claimAdv} disabled={busy}><Gift size={16} /> Забрать находку!</button>}
+            </div>
+          )}
+
+          {/* Фотосессия + Подарок бадди */}
+          <div className="pet-action-row">
+            <button className="pet-action-btn" onClick={takePhoto}>
+              <Camera size={16} /> Фотосессия
+            </button>
+            {buddies?.length > 0 && inventoryItems?.length > 0 && (
+              <button className="pet-action-btn" onClick={() => setGiftOpen(true)}>
+                <Send size={16} /> Подарить бадди
+              </button>
+            )}
+          </div>
+
+          {/* Модалка подарка */}
+          {giftOpen && (
+            <div className="modal-overlay" onClick={() => setGiftOpen(false)}>
+              <div className="modal" onClick={(e) => e.stopPropagation()} style={{ maxWidth: 340 }}>
+                <header className="modal-header">
+                  <h2>🎁 Подарить предмет</h2>
+                  <button className="icon-btn" onClick={() => setGiftOpen(false)}><ArrowLeft size={22} /></button>
+                </header>
+                <p style={{ fontSize: 13, color: 'var(--text-muted)', marginBottom: 12 }}>Выбери кому и что подарить:</p>
+                <select
+                  className="input"
+                  value={giftBuddy}
+                  onChange={(e) => setGiftBuddy(e.target.value)}
+                  style={{ marginBottom: 8 }}
+                >
+                  <option value="">— Кому —</option>
+                  {buddies.map((b) => (
+                    <option key={b.buddy_id} value={b.buddy_id}>
+                      {b.first_name || '@' + b.username}
+                    </option>
+                  ))}
+                </select>
+                <select
+                  className="input"
+                  value={giftItem}
+                  onChange={(e) => setGiftItem(e.target.value)}
+                  style={{ marginBottom: 12 }}
+                >
+                  <option value="">— Что —</option>
+                  {inventoryItems.map((item) => (
+                    <option key={item.item_code} value={item.item_code}>
+                      {item.emoji} {item.title}
+                    </option>
+                  ))}
+                </select>
+                <button
+                  className="primary-btn"
+                  disabled={!giftBuddy || !giftItem}
+                  onClick={async () => {
+                    try {
+                      await api.request('/api/pet/gift', {
+                        method: 'POST',
+                        body: JSON.stringify({ buddyId: Number(giftBuddy), itemCode: giftItem }),
+                      });
+                      alert('🎁 Подарок отправлен!');
+                      setGiftOpen(false);
+                      load();
+                    } catch (e) { alert('❌ ' + e.message); }
+                  }}
+                >
+                  <Send size={16} /> Отправить подарок
+                </button>
+              </div>
             </div>
           )}
 
