@@ -1030,6 +1030,15 @@ input, textarea { font-family: inherit; }
 .measurable-controls { display: flex; gap: 6px; }
 .meas-btn { min-width: 38px; width: auto; padding: 0 6px; height: 26px; border-radius: var(--radius-sm); background: var(--accent-soft); color: var(--accent); font-weight: 800; font-size: var(--text-footnote); display: flex; align-items: center; justify-content: center; }
 .meas-input { width: 110px; padding: 2px 8px; font-size: var(--text-footnote); font-weight: 700; text-align: center; }
+.meas-add-row { display: flex; gap: 6px; margin-bottom: 6px; }
+.meas-add-chip {
+  flex: 1; padding: 6px 0; border-radius: var(--radius-sm);
+  background: var(--accent-soft); color: var(--accent);
+  font-weight: 800; font-size: var(--text-footnote);
+  transition: transform 0.15s ease;
+}
+.meas-add-chip:active { transform: scale(0.92); }
+.meas-add-chip.meas-sub { flex: 0 0 auto; padding: 6px 12px; background: var(--card); color: var(--text-muted); }
 .measurable-bar { height: 6px; background: var(--day-dot-empty); border-radius: var(--radius-full); overflow: hidden; }
 .measurable-fill { height: 100%; background: var(--gradient-main); border-radius: var(--radius-full); transition: width 0.4s ease; }
 

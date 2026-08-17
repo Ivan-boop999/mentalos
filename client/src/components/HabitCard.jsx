@@ -33,12 +33,12 @@ export default function HabitCard({ habit, onLog, onUnlog, onDelete, onEdit }) {
   const isMeasurable = habit.goal_type === 'measurable' && habit.goal_target > 1;
   const progress = isMeasurable ? Math.min(100, Math.round(((todayLog?.value || 0) / habit.goal_target) * 100)) : 0;
 
-  // Умный шаг для больших целей: ккал/мл не кликать по единице
-  const measStep = !isMeasurable ? 1
-    : habit.goal_target >= 500 ? 50
-    : habit.goal_target >= 100 ? 10
-    : habit.goal_target >= 20 ? 5
-    : 1;
+  // Умные инкременты для быстрых чипов: «прочитал ещё N страниц / съел ещё N ккал»
+  const measAddSteps = !isMeasurable ? [1]
+    : habit.goal_target >= 500 ? [50, 100, 250]
+    : habit.goal_target >= 100 ? [10, 25, 50]
+    : habit.goal_target >= 20 ? [5, 10, 20]
+    : [1, 2, 5];
   const changeValue = (delta) => {
     const next = Math.max(0, (Number(todayLog?.value) || 0) + delta);
     onLog(habit.id, { status: 'done', date: todayIso, value: next });
@@ -136,10 +136,15 @@ export default function HabitCard({ habit, onLog, onUnlog, onDelete, onEdit }) {
                 title="Нажми, чтобы ввести точное значение"
               >{todayLog?.value || 0} / {habit.goal_target} {habit.goal_unit}</span>
             )}
-            <div className="measurable-controls">
-              <button className="meas-btn" onClick={() => changeValue(-measStep)}>−{measStep}</button>
-              <button className="meas-btn" onClick={() => changeValue(measStep)}>+{measStep}</button>
-            </div>
+          </div>
+          {/* Чипы быстрого добавления — «прочитал ещё N» (инкремент к накопленному за день) */}
+          <div className="meas-add-row">
+            {measAddSteps.map((s) => (
+              <button key={s} type="button" className="meas-add-chip" onClick={() => changeValue(s)}>+{s}</button>
+            ))}
+            {measAddSteps[0] > 1 && (
+              <button type="button" className="meas-add-chip meas-sub" onClick={() => changeValue(-measAddSteps[0])}>−{measAddSteps[0]}</button>
+            )}
           </div>
           <div className="measurable-bar"><div className="measurable-fill" style={{ width: `${progress}%` }} /></div>
         </div>
