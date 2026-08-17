@@ -89,10 +89,13 @@ router.post('/', async (req, res) => {
   const userId = req.userId;
   const {
     title, emoji = '✨', color = '#7C3AED',
-    frequency = { type: 'daily' }, reminderTime = null, categoryId = null,
+    frequency = { type: 'daily' }, categoryId = null,
     goalType = 'boolean', goalTarget = 1, goalUnit = 'раз',
     cue = null, identity = null, timeOfDay = 'any', stackAfter = null,
   } = req.body;
+  // ФИКС: пустая строка reminderTime ломала PostgreSQL TIME → теперь null
+  const rawReminder = req.body?.reminderTime;
+  const cleanReminder = (rawReminder === '' || rawReminder === undefined) ? null : rawReminder || null;
   const cleanTitle = sanitize(title || '').trim();
   if (!cleanTitle) return res.status(400).json({ error: 'Название обязательно' });
   // ФИКС-ФАЗЗ: goalTarget минимум 1, максимум 100000
@@ -105,7 +108,7 @@ router.post('/', async (req, res) => {
        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14)
        RETURNING id, title, emoji, color, frequency, reminder_time, best_streak,
                  goal_type, goal_target, goal_unit, cue, identity, time_of_day, stack_after`,
-      [userId, cleanTitle, sanitize(emoji), color, frequency, reminderTime, categoryId,
+      [userId, cleanTitle, sanitize(emoji), color, frequency, cleanReminder, categoryId,
        goalType, cleanTarget, goalUnit, cue, identity, timeOfDay, stackAfter],
     );
     const habit = rows[0];
