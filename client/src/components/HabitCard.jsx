@@ -21,6 +21,8 @@ export default function HabitCard({ habit, onLog, onUnlog, onDelete, onEdit }) {
   const [subtasks, setSubtasks] = useState([]);
   const [newSub, setNewSub] = useState('');
   const [strength, setStrength] = useState(null);
+  const [editingValue, setEditingValue] = useState(false);
+  const [draftValue, setDraftValue] = useState('0');
 
   const today = new Date();
   today.setHours(0, 0, 0, 0);
@@ -30,6 +32,22 @@ export default function HabitCard({ habit, onLog, onUnlog, onDelete, onEdit }) {
 
   const isMeasurable = habit.goal_type === 'measurable' && habit.goal_target > 1;
   const progress = isMeasurable ? Math.min(100, Math.round(((todayLog?.value || 0) / habit.goal_target) * 100)) : 0;
+
+  // Умный шаг для больших целей: ккал/мл не кликать по единице
+  const measStep = !isMeasurable ? 1
+    : habit.goal_target >= 500 ? 50
+    : habit.goal_target >= 100 ? 10
+    : habit.goal_target >= 20 ? 5
+    : 1;
+  const changeValue = (delta) => {
+    const next = Math.max(0, (Number(todayLog?.value) || 0) + delta);
+    onLog(habit.id, { status: 'done', date: todayIso, value: next });
+  };
+  const commitValue = (raw) => {
+    const v = Math.max(0, Number(raw) || 0);
+    if (v === (Number(todayLog?.value) || 0)) return;
+    onLog(habit.id, { status: 'done', date: todayIso, value: v });
+  };
 
   const loadExtras = async () => {
     try {
@@ -101,10 +119,26 @@ export default function HabitCard({ habit, onLog, onUnlog, onDelete, onEdit }) {
       {isMeasurable && (
         <div className="measurable-block">
           <div className="measurable-info">
-            <span>{todayLog?.value || 0} / {habit.goal_target} {habit.goal_unit}</span>
+            {editingValue ? (
+              <input
+                className="input meas-input"
+                type="number"
+                autoFocus
+                inputMode="decimal"
+                value={draftValue}
+                onChange={(e) => setDraftValue(e.target.value)}
+                onBlur={() => { setEditingValue(false); commitValue(draftValue); }}
+                onKeyDown={(e) => { if (e.key === 'Enter') { setEditingValue(false); commitValue(draftValue); } if (e.key === 'Escape') setEditingValue(false); }}
+              />
+            ) : (
+              <span
+                onClick={() => { setDraftValue(String(todayLog?.value || 0)); setEditingValue(true); }}
+                title="Нажми, чтобы ввести точное значение"
+              >{todayLog?.value || 0} / {habit.goal_target} {habit.goal_unit}</span>
+            )}
             <div className="measurable-controls">
-              <button className="meas-btn" onClick={() => onLog(habit.id, { status: 'done', date: todayIso, value: Math.max(0, (todayLog?.value || 0) - 1) })}>−</button>
-              <button className="meas-btn" onClick={() => onLog(habit.id, { status: 'done', date: todayIso, value: (todayLog?.value || 0) + 1 })}>+</button>
+              <button className="meas-btn" onClick={() => changeValue(-measStep)}>−{measStep}</button>
+              <button className="meas-btn" onClick={() => changeValue(measStep)}>+{measStep}</button>
             </div>
           </div>
           <div className="measurable-bar"><div className="measurable-fill" style={{ width: `${progress}%` }} /></div>
