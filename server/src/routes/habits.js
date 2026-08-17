@@ -1,6 +1,6 @@
 import { Router } from 'express';
 import pool from '../db/pool.js';
-import { rewardCompanion, rollbackCompanion, checkCompanionMilestones } from './companion.js';
+
 import { updateMissionsOnAction } from './missions.js';
 
 const router = Router();
@@ -398,9 +398,6 @@ router.post('/:id/log', async (req, res) => {
     let bonusEarned = 0;
     let xpEarned = 0;
     let leveledUp = null;
-    if (penalize) {
-      await rewardCompanion(userId, false);
-    }
     if (grantDone) {
       bonusEarned = 1;
       xpEarned = 10;
@@ -408,7 +405,6 @@ router.post('/:id/log', async (req, res) => {
       const levelBefore = before[0]?.level || 1;
       await pool.query(`UPDATE users SET bonus_balance = bonus_balance + 1, xp = xp + 10, total_checkins = total_checkins + 1 WHERE id = $1`, [userId]);
       await pool.query(`INSERT INTO bonus_transactions (user_id, amount, reason) VALUES ($1, $2, 'habit_checkin')`, [userId, 1]);
-      await rewardCompanion(userId, true);
       updateMissionsOnAction(userId, { type: 'checkin', timeOfDay: hRows[0].time_of_day });
       const newLevel = await updateLevel(userId);
       if (newLevel > levelBefore) {
@@ -420,9 +416,6 @@ router.post('/:id/log', async (req, res) => {
     }
 
     const newAchievements = grantDone ? await checkAchievements(userId, habitId, streak) : [];
-
-    // Милстоуны питомца (вылупление/эволюция + подарок)
-    const evolution = grantDone ? await checkCompanionMilestones(userId) : null;
 
     // Variable reward (~12% шанс) — только на валидное начисление (анти-фарм)
     let surprise = null;
@@ -449,7 +442,7 @@ router.post('/:id/log', async (req, res) => {
     res.json({
       ok: true, date, status: finalStatus, value, streak,
       best_streak: Math.max(streak, hRows[0].best_streak || 0),
-      newAchievements, bonusEarned, xpEarned, leveledUp, surprise, evolution,
+      newAchievements, bonusEarned, xpEarned, leveledUp, surprise,
     });
   } catch (err) {
     console.error('log:', err);
@@ -485,7 +478,6 @@ router.post('/:id/unlog', async (req, res) => {
                 total_checkins = GREATEST(0, total_checkins - 1) WHERE id = $1`, [userId],
       );
       await pool.query(`INSERT INTO bonus_transactions (user_id, amount, reason) VALUES ($1, $2, 'checkin_rollback')`, [userId, -1]);
-      await rollbackCompanion(userId);
     }
 
     res.json({ ok: true, date, rolledBack: removedStatus === 'done' });

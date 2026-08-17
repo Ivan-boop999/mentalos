@@ -137,16 +137,6 @@ check('GET missions → сгенерированы (1-2)', Array.isArray(r.json)
 const m0 = r.json[0];
 if (m0) check(`миссия прогрессирует (progress=${m0.progress}, target=${m0.target})`, m0.progress > 0 || m0.target > 1, '');
 
-// ===== 12. Компаньон =====
-r = await call('GET', '/api/companion');
-check('GET companion → mood/xp/level/stage/equipped', typeof r.json?.mood === 'number' && typeof r.json?.xp === 'number' && r.json?.stage && 'equipped' in r.json, JSON.stringify(r.json));
-r = await call('POST', '/api/companion/buy', { body: { code: 'hat_crown' } });
-check('companion buy hat_crown (хватит ли бонусов — хотя бы явный ответ)', r.status === 200 || r.status === 402, JSON.stringify(r.json));
-if (r.json?.ok) {
-  r = await call('POST', '/api/companion/equip', { body: { code: 'hat_crown', category: 'hat' } });
-  check('companion equip → в equipped.hat', r.json?.equipped?.hat === 'hat_crown', JSON.stringify(r.json));
-}
-
 // ===== 13. Бадди: согласие =====
 const friend = { id: 5002, username: 'drug', first_name: 'Друг' };
 // Друг должен существовать в системе (сделать хоть один запрос) — как в реальной жизни

@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState, useCallback } from 'react';
-import { Brain, BarChart3, Target, Smile, Gift, LayoutGrid, Settings, BookOpen, Trophy, Crown, Archive, Users, Swords, TreePine, Sparkles } from 'lucide-react';
+import { Brain, BarChart3, Target, Smile, Gift, LayoutGrid, Settings, BookOpen, Trophy, Crown, Archive, Users, Swords, TreePine } from 'lucide-react';
 import { useTelegram } from './hooks/useTelegram';
 import { useTimezone } from './hooks/useTimezone';
 import { useSound } from './hooks/useSound';
@@ -15,7 +15,6 @@ import MoodPage from './pages/Mood.jsx';
 import JournalPage from './pages/Journal.jsx';
 import ChallengesPage from './pages/Challenges.jsx';
 import MorePage from './pages/More.jsx';
-import PetPage from './pages/PetPage.jsx';
 import LeaderboardPage from './pages/Leaderboard.jsx';
 import ArchivePage from './pages/Archive.jsx';
 import BuddiesPage from './pages/Buddies.jsx';
@@ -23,7 +22,6 @@ import MissionsPage from './pages/Missions.jsx';
 import DuelsPage from './pages/Duels.jsx';
 import RecapPage from './pages/Recap.jsx';
 import HabitTreePage from './pages/HabitTree.jsx';
-import CompanionShopPage from './pages/CompanionShop.jsx';
 import DailyBrief from './pages/DailyBrief.jsx';
 import AddHabitModal from './components/AddHabitModal.jsx';
 import AchievementToast from './components/AchievementToast.jsx';
@@ -45,7 +43,6 @@ export default function App() {
   const [modalOpen, setModalOpen] = useState(false);
   const [editingHabit, setEditingHabit] = useState(null);
   const [celebrate, setCelebrate] = useState(0);
-  const [companionTick, setCompanionTick] = useState(0);
   // Очередь тостов: показываем по одному, чтобы не наслаивались.
   // РАУНД-2 ФИКС: useRef вместо stale activeToast — двойной вызов за один tick больше не теряет тосты
   const toastQueue = useRef([]);
@@ -151,19 +148,6 @@ export default function App() {
         playSound('success');
         if (res.surprise.type === 'streak_shield') loadHabits();
       }
-      // ФИКС: эволюция питомца — тост + подарок (раньше терялся если не на главной)
-      if (res.evolution) {
-        const stageEmoji = { baby: '🐣', teen: '🧒', adult: '🌟' }[res.evolution.stage] || '✨';
-        enqueueToast('surprise', {
-          type: 'evolution',
-          label: `${stageEmoji} Эволюция! ${res.evolution.giftLabel || ''}`,
-        });
-        setCelebrate((c) => c + 1);
-        playSound('success');
-        hapticFeedback('heavy');
-      }
-      // Питомец живёт: обновляем после каждой отметки
-      setCompanionTick((t) => t + 1);
       if (typeof res.streak === 'number') {
         setHabits((prev) => prev.map((h) => (h.id === habitId ? { ...h, streak: res.streak, best_streak: res.best_streak || h.best_streak } : h)));
       }
@@ -189,18 +173,8 @@ export default function App() {
     hapticFeedback('light');
     playSound('toggle');
     setHabits((prev) => prev.map((h) => (h.id === habitId ? { ...h, logs: (h.logs || []).filter((l) => l.date !== date) } : h)));
-    try { await api.unlogHabit(habitId, date); setCompanionTick((t) => t + 1); }
+    try { await api.unlogHabit(habitId, date); }
     catch (e) { setError(e.message); playSound('error'); loadHabits(); }
-  };
-
-  // ЭВОЛЮЦИЯ питомца: конфетти + фанфары + тост
-  const handleEvolve = (e) => {
-    const stageEmoji = { baby: '🐣', teen: '🧒', adult: '🌟' }[e.to] || '✨';
-    const stageName = { baby: 'вылупился!', teen: 'стал подростком!', adult: 'стал взрослым!' }[e.to] || 'эволюционировал!';
-    enqueueToast('surprise', { type: 'evolution', label: `${stageEmoji} ${e.name} ${stageName}` });
-    setCelebrate((c) => c + 1);
-    hapticFeedback('heavy');
-    playSound('success');
   };
 
   // Звук при смене страницы
@@ -278,8 +252,6 @@ export default function App() {
             {page === 'duels' && <><Swords size={22} strokeWidth={2.4} /> Битвы</>}
             {page === 'recap' && <><BarChart3 size={22} strokeWidth={2.4} /> Отчёт</>}
             {page === 'tree' && <><TreePine size={22} strokeWidth={2.4} /> Дерево</>}
-            {page === 'companion-shop' && <><Sparkles size={22} strokeWidth={2.4} /> Компаньон</>}
-            {page === 'pet' && <><Sparkles size={22} strokeWidth={2.4} /> Питомец</>}
           </h1>
           {settings?.level > 0 && (
             <div className="level-badge">Lv {settings.level}</div>
@@ -298,9 +270,6 @@ export default function App() {
               onDelete={handleDelete}
               onEdit={openEdit}
               onAdd={openCreate}
-              companionTick={companionTick}
-              onEvolve={handleEvolve}
-              onOpenPet={() => navigate('pet')}
               userName={userName}
             />
           )}
@@ -319,8 +288,6 @@ export default function App() {
           {page === 'duels' && <DuelsPage buddies={buddiesList} />}
           {page === 'recap' && <RecapPage />}
           {page === 'tree' && <HabitTreePage habits={habits} />}
-          {page === 'companion-shop' && <CompanionShopPage />}
-          {page === 'pet' && <PetPage onBack={() => navigate('home')} />}
         </main>
 
         {page === 'home' && <button className="fab" onClick={openCreate} aria-label="Добавить">+</button>}

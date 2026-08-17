@@ -81,59 +81,6 @@ router.get('/story.png', async (req, res) => {
       ctx.fillText(ach, W / 2, 1230);
     }
 
-    // Питомец (простое существо в стиле SVG-кастомизации)
-    const petName = String(req.query.pet || '').slice(0, 20);
-    const petType = String(req.query.ptype || 'spark').slice(0, 10);
-    const petY = 1420;
-    if (petName) {
-      const r = 130;
-      const cx = W / 2;
-      // Свечение
-      const aura = ctx.createRadialGradient(cx, petY, 0, cx, petY, r * 1.8);
-      aura.addColorStop(0, 'rgba(124,58,237,0.35)');
-      aura.addColorStop(1, 'rgba(124,58,237,0)');
-      ctx.fillStyle = aura;
-      ctx.fillRect(cx - r * 2, petY - r * 2, r * 4, r * 4);
-      // Тело
-      const bodyGrad = ctx.createRadialGradient(cx - r * 0.3, petY - r * 0.35, r * 0.1, cx, petY, r);
-      const petColors = {
-        spark: ['#C4B5FD', '#7C3AED'], leaf: ['#6EE7B7', '#10B981'],
-        drop: ['#67E8F9', '#06B6D4'], flame: ['#FCD34D', '#F59E0B'],
-      };
-      const [c1, c2] = petColors[petType] || petColors.spark;
-      bodyGrad.addColorStop(0, c1);
-      bodyGrad.addColorStop(1, c2);
-      ctx.beginPath();
-      ctx.arc(cx, petY, r, 0, Math.PI * 2);
-      ctx.fillStyle = bodyGrad;
-      ctx.fill();
-      // Блик
-      ctx.beginPath();
-      ctx.ellipse(cx - r * 0.35, petY - r * 0.35, r * 0.35, r * 0.25, -0.5, 0, Math.PI * 2);
-      ctx.fillStyle = 'rgba(255,255,255,0.35)';
-      ctx.fill();
-      // Глаза
-      for (const ex of [-r * 0.35, r * 0.35]) {
-        ctx.beginPath(); ctx.arc(cx + ex, petY - r * 0.1, r * 0.16, 0, Math.PI * 2);
-        ctx.fillStyle = '#FFFFFF'; ctx.fill();
-        ctx.beginPath(); ctx.arc(cx + ex + 3, petY - r * 0.08, r * 0.08, 0, Math.PI * 2);
-        ctx.fillStyle = '#1A1A2E'; ctx.fill();
-      }
-      // Улыбка
-      ctx.beginPath();
-      ctx.arc(cx, petY + r * 0.15, r * 0.3, 0.25 * Math.PI, 0.75 * Math.PI);
-      ctx.strokeStyle = '#1A1A2E'; ctx.lineWidth = 7; ctx.lineCap = 'round'; ctx.stroke();
-      // Румянец
-      for (const ex of [-r * 0.62, r * 0.62]) {
-        ctx.beginPath(); ctx.ellipse(cx + ex, petY + r * 0.18, r * 0.12, r * 0.08, 0, 0, Math.PI * 2);
-        ctx.fillStyle = 'rgba(255,150,180,0.4)'; ctx.fill();
-      }
-      // Имя питомца
-      ctx.font = '700 56px system-ui, sans-serif';
-      ctx.fillStyle = '#FFFFFF';
-      ctx.fillText(`${petName} хочет познакомиться`, W / 2, petY + 230);
-    }
-
     // CTA внизу
     ctx.font = '600 42px system-ui, sans-serif';
     ctx.fillStyle = 'rgba(255,255,255,0.45)';

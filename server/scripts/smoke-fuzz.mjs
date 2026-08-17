@@ -122,14 +122,6 @@ noCrash('value="abc" → не 500', r);
 r = await req('POST', `/api/habits/${FZ}/log`, { body: { status: 'superhero' } });
 noCrash('status="superhero" → не 500', r);
 
-// Компаньон: имя только эмодзи
-r = await req('PUT', '/api/companion', { body: { name: '🐶🐱' } });
-noCrash('Имя=эмодзи → не 500', r);
-
-// Компаньон: тип мусорный
-r = await req('PUT', '/api/companion', { body: { type: 'dragon' } });
-ok('Тип dragon → 400', r.status === 400);
-
 // Настроение вне диапазона
 r = await req('POST', '/api/mood', { body: { mood: 999 } });
 ok('mood=999 → 400', r.status === 400);
@@ -155,9 +147,8 @@ ok('Таблица users НЕ удалена', Number(usersCount.rows[0].c) > 0)
 console.log('\n--- 2. КОНКУРЕНТНЫЕ ЗАПРОСЫ ---');
 // ============================================
 
-// 50 параллельных /log на одну дату (сбрасываем XP для чистоты)
+// 50 параллельных /log на одну дату
 const date1 = '2030-01-01';
-await pool.query(`UPDATE users SET companion_xp = 0, companion_mood = 50 WHERE id = $1`, [U.id]);
 const raceLogs = await Promise.all(
   Array.from({ length: 50 }, () => req('POST', `/api/habits/${FZ}/log`, { body: { status: 'done', date: date1 } })),
 );
@@ -165,23 +156,6 @@ const crashLogs = raceLogs.filter((x) => x.status >= 500);
 ok('50 параллельных /log → 0 крашей', crashLogs.length === 0, `crashes=${crashLogs.length}`);
 const logCount = await pool.query(`SELECT COUNT(*) c FROM habit_logs WHERE habit_id=$1 AND log_date=$2`, [FZ, date1]);
 ok('50 параллельных /log → ровно 1 строка (upsert)', Number(logCount.rows[0].c) === 1, `c=${logCount.rows[0].c}`);
-
-// Компаньон XP после 50 гонок — не должен получить 50×15
-const petAfterRace = await pool.query(`SELECT companion_xp FROM users WHERE id=$1`, [U.id]);
-const xpAfterRace = Number(petAfterRace.rows[0].companion_xp);
-ok(`Компаньон XP после гонки ≤ 15×3 (анти-фарм работает)`, xpAfterRace <= 45, `xp=${xpAfterRace}`);
-
-// 50 параллельных покупок
-await pool.query(`UPDATE users SET bonus_balance = 1000 WHERE id = $1`, [U.id]);
-await pool.query(`DELETE FROM user_items WHERE user_id = $1`, [U.id]);
-const raceBuys = await Promise.all(
-  Array.from({ length: 50 }, () => req('POST', '/api/companion/buy', { body: { code: 'hat_crown' } })),
-);
-const balAfter = Number((await pool.query(`SELECT bonus_balance b FROM users WHERE id=$1`, [U.id])).rows[0].b);
-const ownedAfter = Number((await pool.query(`SELECT COUNT(*) c FROM user_items WHERE user_id=$1 AND item_code='hat_crown'`, [U.id])).rows[0].c);
-ok('50 параллельных buy → баланс не ушёл в минус', balAfter >= 0, `bal=${balAfter}`);
-ok('50 параллельных buy → ровно 1 предмет', ownedAfter === 1, `owned=${ownedAfter}`);
-ok('50 параллельных buy → списано ровно 200', balAfter === 800, `bal=${balAfter}`);
 
 // Параллельные /log и /unlog на одну дату
 const date2 = '2030-06-01';
@@ -202,14 +176,6 @@ console.log('\n--- 3. ИНВАРИАНТЫ ДАННЫХ ---');
 const negBonus = await pool.query(`SELECT COUNT(*) c FROM users WHERE bonus_balance < 0`);
 ok('bonus_balance ≥ 0 у всех', Number(negBonus.rows[0].c) === 0, `neg=${negBonus.rows[0].c}`);
 
-// companion_xp не отрицательный
-const negXp = await pool.query(`SELECT COUNT(*) c FROM users WHERE companion_xp < 0`);
-ok('companion_xp ≥ 0 у всех', Number(negXp.rows[0].c) === 0);
-
-// companion_mood в [0,100]
-const badMood = await pool.query(`SELECT COUNT(*) c FROM users WHERE companion_mood < 0 OR companion_mood > 100`);
-ok('companion_mood в [0,100]', Number(badMood.rows[0].c) === 0);
-
 // xp (user) не отрицательный
 const negUserXp = await pool.query(`SELECT COUNT(*) c FROM users WHERE xp < 0`);
 ok('user xp ≥ 0', Number(negUserXp.rows[0].c) === 0);
@@ -225,19 +191,6 @@ ok('Нет дубликатов habit_logs', dupLogs.rows.length === 0, `dups=${
 // Нет habit_logs без habit
 const orphanLogs = await pool.query(`SELECT COUNT(*) c FROM habit_logs l LEFT JOIN habits h ON h.id = l.habit_id WHERE h.id IS NULL`);
 ok('Нет сиротских habit_logs', Number(orphanLogs.rows[0].c) === 0);
-
-// equipped содержит только существующие предметы
-const equipped = await pool.query(`SELECT companion_equipped FROM users WHERE companion_equipped != '{}'::jsonb`);
-let badEquip = 0;
-for (const row of equipped.rows) {
-  let eq = row.companion_equipped;
-  if (typeof eq === 'string') { try { eq = JSON.parse(eq); } catch { badEquip++; continue; } }
-  for (const [cat, code] of Object.entries(eq)) {
-    const item = await pool.query(`SELECT 1 FROM companion_items WHERE code = $1`, [code]);
-    if (!item.rows.length) badEquip++;
-  }
-}
-ok('equipped содержит только реальные предметы', badEquip === 0, `bad=${badEquip}`);
 
 // ============================================
 console.log('\n--- 4. БЕЗОПАСНОСТЬ ---');

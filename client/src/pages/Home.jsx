@@ -2,9 +2,6 @@ import { useMemo, useState } from 'react';
 import HabitCard from '../components/HabitCard.jsx';
 import ProgressRing from '../components/ProgressRing.jsx';
 import YearHeatmap from '../components/YearHeatmap.jsx';
-import Companion from '../components/Companion.jsx';
-import { useTelegram } from '../hooks/useTelegram';
-import { useSound } from '../hooks/useSound';
 import { getQuoteOfTheDay } from '../utils/quotes.js';
 import { Plus, Search } from 'lucide-react';
 
@@ -25,12 +22,10 @@ function greeting(h) {
   return { text: 'Добрый вечер', emoji: '🌆' };
 }
 
-export default function HomePage({ habits, loading, onLog, onUnlog, onDelete, onEdit, onAdd, userName, companionTick, onEvolve, onOpenPet }) {
+export default function HomePage({ habits, loading, onLog, onUnlog, onDelete, onEdit, onAdd, userName }) {
   const [sort, setSort] = useState('default');
   const [query, setQuery] = useState('');
   const [showHeatmap, setShowHeatmap] = useState(false);
-  const { hapticFeedback } = useTelegram();
-  const { play } = useSound();
   const today = new Date();
   const dateStr = `${WEEKDAY_RU[today.getDay()]}, ${today.getDate()} ${MONTH_RU[today.getMonth()]}`;
   const greet = greeting(today.getHours());
@@ -80,17 +75,6 @@ export default function HomePage({ habits, loading, onLog, onUnlog, onDelete, on
         <div className="greeting-line">{greet.emoji} {dateStr}</div>
         <h1 className="greeting-title">{greet.text}{userName ? `, ${userName}` : ''}!</h1>
       </div>
-
-      {habits.length > 0 && (
-        <div onClick={() => onOpenPet?.()} style={{ cursor: 'pointer' }}>
-          <Companion
-            tick={companionTick}
-            onEvolve={(e) => onEvolve?.(e)}
-            haptic={hapticFeedback}
-            playSound={play}
-          />
-        </div>
-      )}
 
       {habits.length > 0 && (
         <div className="hero-card">

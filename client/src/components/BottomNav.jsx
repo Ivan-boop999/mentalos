@@ -12,7 +12,7 @@ const items = [
 
 export default function BottomNav({ current, onChange }) {
   // Подсветка «Ещё» когда активна любая страница из неё
-  const morePages = ['more', 'settings', 'journal', 'achievements', 'leaderboard', 'archive', 'buddies', 'missions', 'duels', 'recap', 'tree', 'companion-shop', 'pet'];
+  const morePages = ['more', 'settings', 'journal', 'achievements', 'leaderboard', 'archive', 'buddies', 'missions', 'duels', 'recap', 'tree'];
   return (
     <nav className="bottom-nav">
       {items.map(({ key, label, Icon }) => (
