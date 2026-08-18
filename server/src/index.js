@@ -86,7 +86,8 @@ app.use('/api/export', authMiddleware, exportRouter);
 const clientDist = join(__dirname, '../../client/dist');
 if (existsSync(clientDist)) {
   app.use(express.static(clientDist));
-  // SPA-фолбэк: любые не-API маршруты отдают index.html
+  // SPA-фолбэк: любые не-API маршруты отдают index.html; /api/* — честный 404 JSON
+  app.use('/api', (_req, res) => res.status(404).json({ error: 'Не найдено' }));
   app.get('*', (_req, res) => res.sendFile(join(clientDist, 'index.html')));
   console.log(`📦 Отдаём фронтенд из ${clientDist}`);
 }
